@@ -1,0 +1,57 @@
+version: '3.8'
+
+# Production configuration that extends the base docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  # Frontend - production build served by Nginx
+  frontend:
+    build:
+      target: production
+    environment:
+      - NODE_ENV=production
+    # No volume mounts in production
+    volumes: []
+
+  # Backend - production build
+  backend:
+    build:
+      target: production
+    environment:
+      - NODE_ENV=production
+    # No volume mounts in production
+    volumes: []
+
+  # Python - production build
+  python:
+    build:
+      target: production
+    environment:
+      - APP_ENV=production
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    # No volume mounts in production
+    volumes: []
+
+  # Infrastructure services remain the same as in the base configuration
+  # but can be customized here if needed
+  mysql:
+    # Production-specific MySQL configuration
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-password}
+      MYSQL_DATABASE: ${DB_DATABASE:-fullstack_db}
+
+  redis:
+    # Production-specific Redis configuration
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+
+  rabbitmq:
+    # Production-specific RabbitMQ configuration
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+
+  nats:
+    # Production-specific NATS configuration
+    command: -js

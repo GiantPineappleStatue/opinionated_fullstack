@@ -1,0 +1,289 @@
+@import "tailwindcss";
+
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+body {
+  font-family: "Inter", system-ui;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer utilities {
+  .clip-path-triangle {
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  }
+}
+
+@layer components {
+  .animate-fade-in {
+    animation: fadeIn 1s ease-out forwards;
+  }
+  .animate-fade-in-delay {
+    animation: fadeIn 1s ease-out 0.3s forwards;
+    opacity: 0;
+  }
+  .animate-fade-in-delay-2 {
+    animation: fadeIn 1s ease-out 0.6s forwards;
+    opacity: 0;
+  }
+  
+  /* Premium card styling - glossy glass effect */
+  .card-premium {
+    position: relative;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px); /* For Safari */
+    overflow: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 
+      0 2px 4px rgba(0,0,0,0.02),
+      0 4px 8px rgba(0,0,0,0.02),
+      0 8px 16px rgba(0,0,0,0.02),
+      0 16px 32px rgba(0,0,0,0.05);
+    border: 1px solid rgba(255,255,255,0.8);
+    border-radius: 0.5rem;
+  }
+
+  .card-premium:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 4px 8px rgba(0,0,0,0.03),
+      0 8px 16px rgba(0,0,0,0.03),
+      0 16px 32px rgba(0,0,0,0.05),
+      0 32px 64px rgba(0,0,0,0.05);
+  }
+
+  /* Iris light effect that follows mouse */
+  .card-container-wrapper {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .iris-light {
+    position: absolute;
+    pointer-events: none;
+    width: 500px;
+    height: 500px;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  .iris-light::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle at center,
+      rgba(255,255,255,0.9) 0%,
+      rgba(255,255,255,0.7) 10%,
+      rgba(255,255,255,0.3) 30%,
+      rgba(255,255,255,0) 70%
+    );
+    filter: blur(8px);
+    mix-blend-mode: overlay;
+  }
+
+  .iris-light::after {
+    content: "";
+    position: absolute;
+    inset: 5%;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle at center,
+      rgba(255,255,255,0.8) 0%,
+      rgba(255,255,255,0.2) 40%,
+      rgba(255,255,255,0) 60%
+    );
+    filter: blur(5px);
+    mix-blend-mode: screen;
+  }
+
+  .card-container-wrapper:hover .iris-light {
+    opacity: 1;
+  }
+
+  .card-container {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Glossy card effect */
+  .card-premium::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(255,255,255,0.4) 0%,
+      rgba(255,255,255,0.1) 50%,
+      rgba(255,255,255,0) 100%
+    );
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Card edge highlights */
+  .card-premium::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,1) 50%,
+      rgba(255,255,255,0) 100%
+    );
+    z-index: 1;
+  }
+
+  /* Make card content appear above reflections */
+  .card-premium-content {
+    position: relative;
+    z-index: 2;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-pulse {
+  animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 1s ease-out forwards;
+}
+
+/* Tailwind doesn't include this by default */
+.backdrop-blur-xl {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px); /* For Safari */
+}
+
+.backdrop-blur-md {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px); /* For Safari */
+} 

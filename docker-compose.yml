@@ -1,0 +1,185 @@
+version: '3.8'
+
+# Use environment variables for configuration
+# Default values are provided but can be overridden in .env file
+x-project-name: &project-name ${PROJECT_NAME:-fullstack}
+
+# Common configuration for services
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  networks:
+    - app-network
+
+# Common configuration for development services
+x-dev-defaults: &dev-defaults
+  <<: *service-defaults
+  build:
+    target: development
+  environment:
+    - NODE_ENV=${NODE_ENV:-development}
+
+# Frontend service configuration
+x-frontend-config: &frontend-config
+  <<: *dev-defaults
+  build:
+    context: .
+    dockerfile: apps/frontend/Dockerfile
+  environment:
+    - VITE_API_URL=http://backend:${BACKEND_PORT:-3001}/api
+
+# Backend service configuration
+x-backend-config: &backend-config
+  <<: *dev-defaults
+  build:
+    context: .
+    dockerfile: apps/backend/Dockerfile
+  environment:
+    - PORT=${BACKEND_PORT:-3001}
+    - DB_HOST=mysql
+    - DB_PORT=${DB_PORT:-3306}
+    - DB_USERNAME=${DB_USERNAME:-root}
+    - DB_PASSWORD=${DB_PASSWORD:-password}
+    - DB_DATABASE=${DB_DATABASE:-fullstack_db}
+    - REDIS_HOST=redis
+    - REDIS_PORT=${REDIS_PORT:-6379}
+    - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672
+    - RABBITMQ_QUEUE=${RABBITMQ_QUEUE:-tasks}
+    - NATS_URL=nats://nats:4222
+    - FRONTEND_URL=http://frontend:${FRONTEND_PORT:-3002}
+    - JWT_SECRET=${JWT_SECRET:-super-secret-key-change-in-production}
+    - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
+    - THROTTLE_TTL=${THROTTLE_TTL:-60}
+    - THROTTLE_LIMIT=${THROTTLE_LIMIT:-10}
+    - SESSION_SECRET=${SESSION_SECRET:-your-secret-key}
+    - SESSION_NAME=${SESSION_NAME:-sid}
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+    nats:
+      condition: service_healthy
+
+# Python service configuration
+x-python-config: &python-config
+  <<: *dev-defaults
+  build:
+    context: .
+    dockerfile: apps/python/Dockerfile
+  environment:
+    - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+    - NATS_URL=nats://nats:4222
+    - APP_ENV=${NODE_ENV:-development}
+    - DEBUG=true
+    - LOG_LEVEL=DEBUG
+  depends_on:
+    rabbitmq:
+      condition: service_healthy
+    nats:
+      condition: service_healthy
+
+services:
+  # Frontend
+  frontend:
+    <<: *frontend-config
+    container_name: ${PROJECT_NAME:-fullstack}-frontend
+    ports:
+      - "${FRONTEND_PORT:-3002}:3000"
+    depends_on:
+      - backend
+
+  # Backend
+  backend:
+    <<: *backend-config
+    container_name: ${PROJECT_NAME:-fullstack}-backend
+    ports:
+      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
+
+  # Database
+  mysql:
+    <<: *service-defaults
+    image: mysql:8.0
+    container_name: ${PROJECT_NAME:-fullstack}-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-password}
+      MYSQL_DATABASE: ${DB_DATABASE:-fullstack_db}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-password}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Session store
+  redis:
+    <<: *service-defaults
+    image: redis:7.0-alpine
+    container_name: ${PROJECT_NAME:-fullstack}-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Message queue for async tasks
+  rabbitmq:
+    <<: *service-defaults
+    image: rabbitmq:3.11-management-alpine
+    container_name: ${PROJECT_NAME:-fullstack}-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "check_port_connectivity" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Real-time streaming from Python service
+  nats:
+    <<: *service-defaults
+    image: nats:2.9-alpine
+    container_name: ${PROJECT_NAME:-fullstack}-nats
+    ports:
+      - "${NATS_PORT:-4222}:4222"
+      - "${NATS_MONITORING_PORT:-8222}:8222"
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/varz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # Python service (FastAPI)
+  python:
+    <<: *python-config
+    container_name: ${PROJECT_NAME:-fullstack}-python
+    ports:
+      - "${PYTHON_PORT:-8000}:8000"
+
+networks:
+  app-network:
+    name: ${PROJECT_NAME:-fullstack}-network
+    driver: bridge
+
+volumes:
+  mysql-data:
+    name: ${PROJECT_NAME:-fullstack}-mysql-data
+  redis-data:
+    name: ${PROJECT_NAME:-fullstack}-redis-data
+  rabbitmq-data:
+    name: ${PROJECT_NAME:-fullstack}-rabbitmq-data

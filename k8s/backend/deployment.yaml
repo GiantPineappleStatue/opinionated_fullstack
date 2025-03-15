@@ -1,0 +1,173 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: ${PROJECT_NAME:-fullstack}
+data:
+  NODE_ENV: ${NODE_ENV:-production}
+  PORT: "${BACKEND_PORT:-3001}"
+  DB_HOST: "mysql"
+  DB_PORT: "${DB_PORT:-3306}"
+  DB_USERNAME: "${DB_USERNAME:-root}"
+  DB_DATABASE: "${DB_DATABASE:-fullstack_db}"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "${REDIS_PORT:-6379}"
+  RABBITMQ_URL: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672"
+  RABBITMQ_QUEUE: "${RABBITMQ_QUEUE:-tasks}"
+  NATS_URL: "nats://nats:4222"
+  FRONTEND_URL: "http://frontend:${FRONTEND_PORT:-3000}"
+  THROTTLE_TTL: "${THROTTLE_TTL:-60}"
+  THROTTLE_LIMIT: "${THROTTLE_LIMIT:-10}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: ${PROJECT_NAME:-fullstack}
+type: Opaque
+data:
+  DB_PASSWORD: ${DB_PASSWORD_BASE64:-cGFzc3dvcmQ=}  # Default: "password" in base64
+  JWT_SECRET: ${JWT_SECRET_BASE64:-c3VwZXItc2VjcmV0LWtleS1jaGFuZ2UtaW4tcHJvZHVjdGlvbg==}  # Default: "super-secret-key-change-in-production" in base64
+  JWT_EXPIRES_IN: ${JWT_EXPIRES_IN_BASE64:-MWQ=}  # Default: "1d" in base64
+  SESSION_SECRET: ${SESSION_SECRET_BASE64:-eW91ci1zZWNyZXQta2V5}  # Default: "your-secret-key" in base64
+  SESSION_NAME: ${SESSION_NAME_BASE64:-c2lk}  # Default: "sid" in base64
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: ${PROJECT_NAME:-fullstack}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: ${PROJECT_NAME:-fullstack}/backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: ${BACKEND_PORT:-3001}
+          name: http
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: NODE_ENV
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: PORT
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: DB_PORT
+        - name: DB_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: DB_USERNAME
+        - name: DB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: DB_DATABASE
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: DB_PASSWORD
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: REDIS_PORT
+        - name: RABBITMQ_URL
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: RABBITMQ_URL
+        - name: RABBITMQ_QUEUE
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: RABBITMQ_QUEUE
+        - name: NATS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: NATS_URL
+        - name: FRONTEND_URL
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: FRONTEND_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: JWT_SECRET
+        - name: JWT_EXPIRES_IN
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: JWT_EXPIRES_IN
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: SESSION_SECRET
+        - name: SESSION_NAME
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: SESSION_NAME
+        - name: THROTTLE_TTL
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: THROTTLE_TTL
+        - name: THROTTLE_LIMIT
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: THROTTLE_LIMIT
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: ${BACKEND_PORT:-3001}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: ${BACKEND_PORT:-3001}
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          timeoutSeconds: 1 

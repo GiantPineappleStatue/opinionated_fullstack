@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ${PROJECT_NAME:-fullstack}-ingress
+  namespace: ${PROJECT_NAME:-fullstack}
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  rules:
+  - host: ${INGRESS_HOST:-fullstack.local}
+    http:
+      paths:
+      - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: ${BACKEND_PORT:-3001}
+      - path: /python(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: python
+            port:
+              number: ${PYTHON_PORT:-8000}
+      - path: /(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80 

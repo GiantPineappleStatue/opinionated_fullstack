@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: python-config
+  namespace: ${PROJECT_NAME:-fullstack}
+data:
+  APP_ENV: ${NODE_ENV:-production}
+  DEBUG: "false"
+  LOG_LEVEL: "INFO"
+  RABBITMQ_URL: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/"
+  RABBITMQ_QUEUE: "${RABBITMQ_QUEUE:-tasks}"
+  RABBITMQ_EXCHANGE: "${RABBITMQ_EXCHANGE:-tasks}"
+  RABBITMQ_ROUTING_KEY: "${RABBITMQ_ROUTING_KEY:-task}"
+  NATS_URL: "nats://nats:4222"
+  NATS_SUBJECT_PREFIX: "${NATS_SUBJECT_PREFIX:-task}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python
+  namespace: ${PROJECT_NAME:-fullstack}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: python
+  template:
+    metadata:
+      labels:
+        app: python
+    spec:
+      containers:
+      - name: python
+        image: ${PROJECT_NAME:-fullstack}/python:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: ${PYTHON_PORT:-8000}
+          name: http
+        env:
+        - name: APP_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: python-config
+              key: APP_ENV
+        - name: DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: python-config
+              key: DEBUG
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: python-config
+              key: LOG_LEVEL
+        - name: RABBITMQ_URL
+          valueFrom:
+            configMapKeyRef:
+              name: python-config
+              key: RABBITMQ_URL
+        - name: RABBITMQ_QUEUE
+          valueFrom:
+            configMapKeyRef:
+              name: python-config
+              key: RABBITMQ_QUEUE
+        - name: RABBITMQ_EXCHANGE
+          valueFrom:
+            configMapKeyRef:
+              name: python-config
+              key: RABBITMQ_EXCHANGE
+        - name: RABBITMQ_ROUTING_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: python-config
+              key: RABBITMQ_ROUTING_KEY
+        - name: NATS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: python-config
+              key: NATS_URL
+        - name: NATS_SUBJECT_PREFIX
+          valueFrom:
+            configMapKeyRef:
+              name: python-config
+              key: NATS_SUBJECT_PREFIX
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "300m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: ${PYTHON_PORT:-8000}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: ${PYTHON_PORT:-8000}
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          timeoutSeconds: 1 
