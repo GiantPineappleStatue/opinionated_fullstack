@@ -1,84 +1,93 @@
-# Turborepo starter
+# Fullstack Boilerplate with Role-Based Authentication
 
-This Turborepo starter is maintained by the Turborepo core team.
+This project is a fullstack boilerplate with a robust role-based authentication system. It includes a NestJS backend and a React frontend.
 
-## Using this example
+## Features
 
-Run the following command:
+- **User Authentication**: Complete authentication system with registration, login, and logout
+- **Role-Based Access Control**: Support for different user roles (User and Admin)
+- **Session Management**: Secure session management with Redis
+- **Admin Panel**: Administrative functionality for user management
+- **UUIDv7**: Modern UUID implementation for secure user identification
 
-```sh
-npx create-turbo@latest
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v18+)
+- MySQL/MariaDB
+- Redis (optional, for production)
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/yourusername/fullstack-boilerplate.git
+cd fullstack-boilerplate
 ```
 
-## What's inside?
+2. Install dependencies:
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-pnpm build
+```bash
+npm install
 ```
 
-### Develop
+3. Set up environment variables:
 
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-pnpm dev
+```bash
+cp .env.example .env
+# Edit .env with your database credentials
 ```
 
-### Remote Caching
+4. Start the development server:
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turbo.build/repo/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-npx turbo login
+```bash
+npm run dev
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+### Creating an Admin User
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+To create an admin user:
 
+```bash
+cd apps/backend
+npm run create-admin
 ```
-npx turbo link
-```
 
-## Useful Links
+This will create an admin user with the following default credentials (unless overridden by environment variables):
+- Email: admin@example.com
+- Password: admin123
+- Name: Admin User
 
-Learn more about the power of Turborepo:
+## Architecture
 
-- [Tasks](https://turbo.build/repo/docs/core-concepts/monorepos/running-tasks)
-- [Caching](https://turbo.build/repo/docs/core-concepts/caching)
-- [Remote Caching](https://turbo.build/repo/docs/core-concepts/remote-caching)
-- [Filtering](https://turbo.build/repo/docs/core-concepts/monorepos/filtering)
-- [Configuration Options](https://turbo.build/repo/docs/reference/configuration)
-- [CLI Usage](https://turbo.build/repo/docs/reference/command-line-reference)
+### Backend (NestJS)
+
+- **Authentication Module**: Handles user registration, login, and session management
+- **Admin Module**: Provides administrative functionality (user management)
+- **Guards**: Implements authentication and role-based access control
+- **Database**: MySQL/MariaDB with migrations
+
+### Frontend (React)
+
+- **Authentication Context**: Manages user authentication state
+- **Protected Routes**: Routes that require authentication
+- **Role-Based Components**: Components that are only rendered for specific user roles
+
+## Security Features
+
+- **Password Hashing**: Passwords are hashed using bcrypt
+- **Session Management**: Secure session management with Redis
+- **Role-Based Access Control**: Fine-grained access control based on user roles
+- **UUIDv7**: Modern UUID implementation for secure user identification
+
+## Documentation
+
+- [Authentication System](apps/backend/src/auth/README.md)
+- [Admin Module](apps/backend/src/admin/README.md)
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+# opinionated_fullstack
