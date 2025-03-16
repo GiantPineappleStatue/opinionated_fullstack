@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = Field(default="gpt-4", env="OPENAI_MODEL")
     
     # NestJS API settings for OpenAPI schema
-    NESTJS_API_URL: str = Field(default="http://backend:3002/api", env="NESTJS_API_URL")
-    NESTJS_OPENAPI_URL: str = Field(default="http://backend:3002/api/docs-json", env="NESTJS_OPENAPI_URL")
+    NESTJS_API_URL: str = Field(default="http://backend:3001/api", env="NESTJS_API_URL")
+    NESTJS_OPENAPI_URL: str = Field(default="http://backend:3001/api/docs-json", env="NESTJS_OPENAPI_URL")
     
     class Config:
         """Pydantic config."""

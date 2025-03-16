@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { RegisterRequestV2 } from '@repo/shared-types';
-import { useAuth } from '@/providers/auth-provider';
+import { useAuth } from '@/auth';
 
 import { Button } from '@/components/ui/button';
 import {

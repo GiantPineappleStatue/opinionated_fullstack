@@ -2,6 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 import os
+import json
+import datetime
 
 from app.config import Settings, get_settings
 from app.messaging.rabbitmq import RabbitMQService
@@ -50,20 +52,49 @@ async def startup_event():
         nats_service = NatsService(settings)
         await nats_service.connect()
         logger.info("NATS service initialized")
+        
+        # Set up test message handler
+        async def handle_test_message(msg):
+            try:
+                # Decode and parse message
+                subject = msg.subject
+                data = json.loads(msg.data.decode())
+                
+                logger.info(f"Received test message on {subject}: {data}")
+                
+                # Send a response back
+                response = {
+                    "id": data.get("id"),
+                    "received": True,
+                    "message": "Hello from Python!",
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "original": data
+                }
+                
+                await nats_service.publish("test.response", response)
+                logger.info(f"Sent response for test message {data.get('id')}")
+                
+            except Exception as e:
+                logger.error(f"Error handling test message: {e}")
+        
+        # Subscribe to test messages
+        await nats_service.subscribe("test.message", handle_test_message)
+        logger.info("Subscribed to NATS test messages")
+        
     except Exception as e:
         logger.error(f"Failed to initialize NATS service: {e}")
         # Continue even if NATS fails - we'll handle reconnection logic
     
-    # Generate models from NestJS OpenAPI schema
+    # Generate models from NestJS OpenAPI schema only if they don't exist
     try:
-        logger.info("Generating models from NestJS OpenAPI schema...")
-        models_updated = await update_models()
+        logger.info("Checking for NestJS OpenAPI models...")
+        models_updated = await update_models(force=False)
         if models_updated:
-            logger.info("Models generated successfully")
+            logger.info("Models are up to date")
         else:
-            logger.warning("Failed to generate models, using existing models if available")
+            logger.warning("Failed to check/generate models, using existing models if available")
     except Exception as e:
-        logger.error(f"Error generating models: {e}")
+        logger.error(f"Error checking/generating models: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():

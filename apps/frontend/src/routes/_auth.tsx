@@ -1,28 +1,16 @@
 import { Outlet, createFileRoute, redirect, Link } from '@tanstack/react-router';
-import { useAuth } from '@/providers/auth-provider';
+import { useAuth } from '@/auth';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
-
-interface RouterContext {
-  auth: {
-    isAuthenticated: boolean;
-    isLoading: boolean;
-  };
-}
+import { Loading } from '@/components/loading';
 
 export const Route = createFileRoute('/_auth')({
-  beforeLoad: ({ context }) => {
-    // If we're still loading, don't redirect yet
-    if (context.auth.isLoading) {
-      return;
-    }
-    
-    // If not authenticated after loading, redirect to login
+  beforeLoad: ({ context, location }) => {
     if (!context.auth.isAuthenticated) {
       throw redirect({
         to: '/login',
         search: {
-          redirect: window.location.pathname,
+          // Use the current location to power a redirect after login
+          redirect: location.href,
         },
       });
     }
@@ -39,8 +27,8 @@ function AuthLayout() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center min-h-screen">
+        <Loading size="lg" />
       </div>
     );
   }
@@ -52,6 +40,7 @@ function AuthLayout() {
           <nav className="flex items-center space-x-4 lg:space-x-6 mx-6">
             <Link
               to="/dashboard"
+              search={{ redirect: undefined }}
               className="text-sm font-medium transition-colors hover:text-primary"
               activeProps={{
                 className: "text-sm font-medium text-primary"
@@ -61,6 +50,7 @@ function AuthLayout() {
             </Link>
             <Link
               to="/profile"
+              search={{ redirect: undefined }}
               className="text-sm font-medium transition-colors hover:text-primary"
               activeProps={{
                 className: "text-sm font-medium text-primary"
@@ -70,6 +60,7 @@ function AuthLayout() {
             </Link>
             <Link
               to="/account"
+              search={{ redirect: undefined }}
               className="text-sm font-medium transition-colors hover:text-primary"
               activeProps={{
                 className: "text-sm font-medium text-primary"

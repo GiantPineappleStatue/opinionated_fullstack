@@ -1,14 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RedisService } from '../redis/redis.service';
 import * as session from 'express-session';
-import { RedisStore } from 'connect-redis';
 import { Request, Response } from 'express';
-import { Redis } from 'ioredis';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Inject } from '@nestjs/common';
+import { Cache } from 'cache-manager';
+import { EventEmitter } from 'events';
 
 // Extend the express-session types
 declare module 'express-session' {
   interface SessionData {
+    id: string;
     userId: string;
     user: {
       id: string;
@@ -22,76 +24,213 @@ declare module 'express-session' {
 @Injectable()
 export class SessionService {
   private readonly logger = new Logger(SessionService.name);
+  private readonly isProduction: boolean;
+  private readonly eventEmitter: EventEmitter;
   
   constructor(
     private readonly configService: ConfigService,
-    private readonly redisService: RedisService,
-  ) {}
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {
+    this.isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    this.eventEmitter = new EventEmitter();
+  }
 
   getSessionMiddleware() {
-    let store;
+    const config = this.configService.get('session');
     
-    // Check if Redis is enabled
-    const redisEnabled = this.configService.get<string>('redis.enabled') !== 'false';
-    
-    if (redisEnabled) {
-      try {
-        const redisClient = this.redisService.getClient();
-        
-        // Only create RedisStore if we have a real Redis client
-        if (redisClient instanceof Redis) {
-          // Create Redis store using ioredis client
-          store = new RedisStore({ 
-            client: redisClient,
-            prefix: 'sess:',
-          });
-          this.logger.log('Using Redis store for sessions');
-        } else {
-          // Fall back to memory store
-          store = new session.MemoryStore();
-          this.logger.warn('Redis client is not available. Using memory store for sessions (not suitable for production)');
-        }
-      } catch (error) {
-        this.logger.error('Failed to create Redis store:', error);
-        // Fall back to memory store
-        store = new session.MemoryStore();
-        this.logger.warn('Falling back to memory store for sessions (not suitable for production)');
-      }
-    } else {
-      // Use memory store if Redis is disabled
-      store = new session.MemoryStore();
-      this.logger.warn('Redis is disabled. Using memory store for sessions (not suitable for production)');
-    }
-    
-    return session({
-      store,
-      secret: this.configService.get<string>('jwt.secret') || 'super-secret-key-change-in-production',
+    this.logger.debug('[SessionService] Initializing session middleware with config:', {
+      secure: this.isProduction ? true : config.cookie.secure,
+      name: 'sessionId',
       resave: false,
       saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        secure: this.configService.get<string>('NODE_ENV') === 'production',
-        maxAge: 1000 * 60 * 60 * 24, // 1 day
-        sameSite: 'lax',
-      },
+      rolling: true,
+      ttl: config.ttl,
+      cookiePath: '/api'
     });
+    
+    const sessionConfig: session.SessionOptions = {
+      secret: config.secret,
+      resave: false,
+      saveUninitialized: false,
+      rolling: true,
+      name: 'sessionId',
+      cookie: {
+        ...config.cookie,
+        // Ensure secure cookies in production
+        secure: this.isProduction ? true : config.cookie.secure,
+        // Set cookie path to /api to match global prefix
+        path: '/api',
+      },
+      store: {
+        get: async (sid: string) => {
+          try {
+            this.logger.debug('[SessionService] Getting session from store:', { sid });
+            const data = await this.cacheManager.get(`sess:${sid}`);
+            this.logger.debug('[SessionService] Session data retrieved:', { 
+              sid,
+              hasData: !!data,
+              sessionData: data ? JSON.parse(data as string) : null
+            });
+            return data ? JSON.parse(data as string) : null;
+          } catch (error) {
+            this.logger.error('[SessionService] Error getting session:', {
+              sid,
+              error: error.message,
+              stack: error.stack
+            });
+            throw error;
+          }
+        },
+        set: async (sid: string, session: any) => {
+          try {
+            this.logger.debug('[SessionService] Setting session in store:', { 
+              sid,
+              userId: session.userId,
+              ttl: config.ttl,
+              sessionData: session
+            });
+            await this.cacheManager.set(`sess:${sid}`, JSON.stringify(session), config.ttl * 1000);
+            this.logger.debug('[SessionService] Session saved successfully:', { sid });
+          } catch (error) {
+            this.logger.error('[SessionService] Error setting session:', {
+              sid,
+              error: error.message,
+              stack: error.stack
+            });
+            throw error;
+          }
+        },
+        destroy: async (sid: string) => {
+          try {
+            this.logger.debug('[SessionService] Destroying session:', { sid });
+            await this.cacheManager.del(`sess:${sid}`);
+            this.logger.debug('[SessionService] Session destroyed successfully:', { sid });
+          } catch (error) {
+            this.logger.error('[SessionService] Error destroying session:', {
+              sid,
+              error: error.message,
+              stack: error.stack
+            });
+            throw error;
+          }
+        },
+        all: async () => {
+          // This is a simplified implementation
+          return [];
+        },
+        regenerate: async (req: Request, fn: (err?: any) => void) => {
+          const oldSid = req.sessionID;
+          req.session.regenerate((err) => {
+            if (err) {
+              fn(err);
+              return;
+            }
+            this.cacheManager.del(`sess:${oldSid}`).catch(() => {});
+            fn();
+          });
+        },
+        load: async (sid: string, fn: (err: any, session?: any) => void) => {
+          try {
+            const data = await this.cacheManager.get(`sess:${sid}`);
+            fn(null, data ? JSON.parse(data as string) : null);
+          } catch (err) {
+            fn(err);
+          }
+        },
+        createSession: (req: Request, session: session.SessionData) => {
+          req.sessionID = session.id;
+          req.session = session as session.Session & session.SessionData;
+          return req.session;
+        },
+        addListener: (event: string | symbol, listener: (...args: any[]) => void) => {
+          this.eventEmitter.addListener(event, listener);
+          return this;
+        },
+        removeListener: (event: string | symbol, listener: (...args: any[]) => void) => {
+          this.eventEmitter.removeListener(event, listener);
+          return this;
+        },
+        removeAllListeners: (event?: string | symbol) => {
+          this.eventEmitter.removeAllListeners(event);
+          return this;
+        },
+        on: (event: string | symbol, listener: (...args: any[]) => void) => {
+          this.eventEmitter.on(event, listener);
+          return this;
+        },
+        once: (event: string | symbol, listener: (...args: any[]) => void) => {
+          this.eventEmitter.once(event, listener);
+          return this;
+        },
+        emit: (event: string | symbol, ...args: any[]) => {
+          return this.eventEmitter.emit(event, ...args);
+        },
+        listenerCount: (event: string | symbol) => {
+          return this.eventEmitter.listenerCount(event);
+        },
+        listeners: (event: string | symbol) => {
+          return this.eventEmitter.listeners(event);
+        },
+        rawListeners: (event: string | symbol) => {
+          return this.eventEmitter.rawListeners(event);
+        },
+        eventNames: () => {
+          return this.eventEmitter.eventNames();
+        },
+        prependListener: (event: string | symbol, listener: (...args: any[]) => void) => {
+          this.eventEmitter.prependListener(event, listener);
+          return this;
+        },
+        prependOnceListener: (event: string | symbol, listener: (...args: any[]) => void) => {
+          this.eventEmitter.prependOnceListener(event, listener);
+          return this;
+        },
+        getMaxListeners: () => {
+          return this.eventEmitter.getMaxListeners();
+        },
+        setMaxListeners: (n: number) => {
+          this.eventEmitter.setMaxListeners(n);
+          return this;
+        },
+      } as unknown as session.Store,
+    };
+
+    return session(sessionConfig);
   }
 
   // Helper method to set user session
   setSession(req: Request, userId: string, userData: any) {
+    this.logger.debug('[SessionService] Setting user session:', { 
+      sessionID: req.sessionID,
+      userId,
+      userData: {
+        id: userData.id,
+        email: userData.email,
+        role: userData.role
+      }
+    });
     req.session.userId = userId;
     req.session.user = userData;
   }
 
   // Helper method to clear user session
   clearSession(req: Request, res: Response) {
+    this.logger.debug('[SessionService] Clearing user session:', { 
+      sessionID: req.sessionID,
+      userId: req.session?.userId
+    });
     return new Promise<void>((resolve, reject) => {
       req.session.destroy((err) => {
         if (err) {
+          this.logger.error('[SessionService] Error clearing session:', { 
+            sessionID: req.sessionID,
+            error: err.message
+          });
           reject(err);
           return;
         }
-        res.clearCookie('connect.sid');
+        res.clearCookie('sessionId', { path: '/api' });
+        this.logger.debug('[SessionService] Session cleared successfully');
         resolve();
       });
     });

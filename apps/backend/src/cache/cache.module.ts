@@ -16,37 +16,38 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
     NestCacheModule.registerAsync({
       isGlobal: true,
-      imports: [ConfigModule, RedisModule],
-      inject: [ConfigService, RedisService],
-      useFactory: async (configService: ConfigService, redisService: RedisService) => {
-        const isRedisEnabled = configService.get<string>('redis.enabled') !== 'false';
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => {
+        const isProduction = configService.get<string>('NODE_ENV') === 'production';
+        const config = configService.get('cache');
+        const host = configService.get<string>('REDIS_HOST') || 'keydb';
+        const port = configService.get<number>('REDIS_PORT') || 6379;
         
-        // If Redis is disabled, use memory store (default)
-        if (!isRedisEnabled) {
-          return {
-            ttl: 300, // 5 minutes default TTL
-            max: 1000, // Maximum number of items in cache
-          };
-        }
+        console.log('[CacheModule] Initializing cache store with config:', {
+          host,
+          port,
+          isProduction,
+          ttl: config.ttl,
+          max: config.max
+        });
         
-        // Use Redis store if Redis is enabled
-        try {
-          const redisClient = redisService.getClient();
-          
-          return {
-            store: {
-              create: () => redisClient,
-            },
-            ttl: 300, // 5 minutes default TTL
-          };
-        } catch (error) {
-          console.error('Failed to create Redis store for cache:', error);
-          // Fallback to memory store
-          return {
-            ttl: 300, // 5 minutes default TTL
-            max: 1000, // Maximum number of items in cache
-          };
-        }
+        return {
+          store: 'redis',
+          host,
+          port,
+          ttl: config.ttl,
+          max: config.max,
+          retryStrategy: (times: number) => {
+            if (times > 10) {
+              console.error('[CacheModule] Max retry attempts reached');
+              return false;
+            }
+            const delay = Math.min(times * 1000, 3000);
+            console.log(`[CacheModule] Retrying connection in ${delay}ms (attempt ${times})`);
+            return delay;
+          }
+        };
       },
     }),
   ],

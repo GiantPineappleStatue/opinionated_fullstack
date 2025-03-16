@@ -1,15 +1,7 @@
-import { env } from '@/env';
 import { errorLogger } from './error/error-logger';
 
 interface ApiOptions {
-  baseUrl?: string;
   headers?: Record<string, string>;
-}
-
-interface ApiResponse<T> {
-  data: T;
-  message?: string;
-  status: number;
 }
 
 interface ApiError {
@@ -19,142 +11,140 @@ interface ApiError {
   errors?: Record<string, string[]>;
 }
 
-export class ApiClient {
-  private baseUrl: string;
-  private headers: Record<string, string>;
+// Create API client configuration
+const createApiConfig = (options: ApiOptions = {}) => {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...options.headers,
+  };
+  
+  return { headers };
+};
 
-  constructor(options: ApiOptions = {}) {
-    this.baseUrl = options.baseUrl || env.VITE_API_URL;
-    this.headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-  }
-
-  private async handleResponse<T>(response: Response): Promise<T> {
-    const contentType = response.headers.get('content-type');
-    const isJson = contentType?.includes('application/json');
+// Handle API response
+const handleResponse = async <T>(response: Response): Promise<T> => {
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({
+      message: response.statusText || 'An error occurred',
+      status: response.status,
+      code: 'API_ERROR'
+    }));
     
-    if (!response.ok) {
-      let error: ApiError;
-      
-      if (isJson) {
-        error = await response.json();
-      } else {
-        error = {
-          message: response.statusText || 'An error occurred',
-          status: response.status,
-        };
-      }
-
-      // Log the API error
-      errorLogger.error(new Error(`API Error: ${error.message}`), {
-        action: 'api_response',
-        additionalData: {
-          url: response.url,
-          status: response.status,
-          statusText: response.statusText,
-          error,
-        },
-      });
-
-      throw error;
-    }
-
-    if (isJson) {
-      const result = await response.json();
-      return result.data;
-    }
-
-    return response as unknown as T;
+    errorLogger.error('API Error', { error, url: response.url });
+    throw error;
   }
 
-  private getHeaders(): Record<string, string> {
-    return {
-      ...this.headers,
+  // For empty responses
+  if (response.headers.get('content-length') === '0') {
+    return undefined as T;
+  }
+
+  try {
+    const data = await response.json();
+    return data as T;
+  } catch (e) {
+    const error: ApiError = {
+      message: 'Failed to parse response',
+      status: 500,
+      code: 'PARSE_ERROR'
     };
+    errorLogger.error('Parse Error', { error, url: response.url });
+    throw error;
   }
+};
 
-  private async fetchWithErrorHandling(url: string, options: RequestInit): Promise<Response> {
+// Create API client
+export const createApiClient = (options: ApiOptions = {}) => {
+  const config = createApiConfig(options);
+  
+  const fetchWithConfig = async (url: string, options: RequestInit = {}): Promise<Response> => {
+    const isAuthEndpoint = url.includes('auth/');
+    if (isAuthEndpoint) {
+      console.log(`Making auth request to: ${url}`, {
+        method: options.method,
+        headers: { ...config.headers, ...options.headers },
+        credentials: 'include',
+      });
+    }
+    
     try {
-      return await fetch(url, options);
-    } catch (error) {
-      // Log the error
-      errorLogger.error(error instanceof Error ? error : new Error('API request failed'), {
-        action: 'api_request',
-        additionalData: {
-          url,
-          method: options.method,
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...config.headers,
+          ...options.headers,
         },
+        credentials: 'include',
       });
       
-      // Create a more informative error for CORS issues
-      if (error instanceof TypeError && error.message.includes('NetworkError')) {
-        throw {
-          message: 'Network error: This might be due to CORS restrictions or the server being unavailable.',
-          status: 0,
-          code: 'NETWORK_ERROR'
-        };
+      if (isAuthEndpoint) {
+        const responseHeaders: Record<string, string> = {};
+        response.headers.forEach((value, key) => {
+          responseHeaders[key] = value;
+        });
+        
+        console.log(`Auth response details:`, {
+          url,
+          status: response.status,
+          ok: response.ok,
+          statusText: response.statusText,
+          headers: responseHeaders,
+          type: response.type,
+          redirected: response.redirected,
+        });
       }
       
-      // For other fetch errors
+      return response;
+    } catch (error) {
+      errorLogger.error('Network Error', { error, url });
       throw {
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        message: error instanceof Error ? error.message : 'Network error occurred',
         status: 0,
-        code: 'FETCH_ERROR'
+        code: 'NETWORK_ERROR'
       };
     }
-  }
-
-  async get<T>(path: string): Promise<T> {
-    const response = await this.fetchWithErrorHandling(`${this.baseUrl}${path}`, {
-      method: 'GET',
-      headers: this.getHeaders(),
-      credentials: 'include',
-    });
-    return this.handleResponse<T>(response);
-  }
-
-  async post<T>(path: string, data?: unknown): Promise<T> {
-    const response = await this.fetchWithErrorHandling(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: data ? JSON.stringify(data) : undefined,
-      credentials: 'include',
-    });
-    return this.handleResponse<T>(response);
-  }
-
-  async put<T>(path: string, data: unknown): Promise<T> {
-    const response = await this.fetchWithErrorHandling(`${this.baseUrl}${path}`, {
-      method: 'PUT',
-      headers: this.getHeaders(),
-      body: JSON.stringify(data),
-      credentials: 'include',
-    });
-    return this.handleResponse<T>(response);
-  }
-
-  async delete<T>(path: string, data?: unknown): Promise<T> {
-    const response = await this.fetchWithErrorHandling(`${this.baseUrl}${path}`, {
-      method: 'DELETE',
-      headers: this.getHeaders(),
-      body: data ? JSON.stringify(data) : undefined,
-      credentials: 'include',
-    });
-    return this.handleResponse<T>(response);
-  }
-
-  async patch<T>(path: string, data: unknown): Promise<T> {
-    const response = await this.fetchWithErrorHandling(`${this.baseUrl}${path}`, {
-      method: 'PATCH',
-      headers: this.getHeaders(),
-      body: JSON.stringify(data),
-      credentials: 'include',
-    });
-    return this.handleResponse<T>(response);
-  }
-}
+  };
+  
+  return {
+    get: async <T>(url: string): Promise<T> => {
+      const response = await fetchWithConfig(url, { method: 'GET' });
+      return handleResponse<T>(response);
+    },
+    
+    post: async <T>(url: string, data?: unknown): Promise<T> => {
+      const response = await fetchWithConfig(url, {
+        method: 'POST',
+        body: data ? JSON.stringify(data) : undefined,
+      });
+      return handleResponse<T>(response);
+    },
+    
+    put: async <T>(url: string, data: unknown): Promise<T> => {
+      const response = await fetchWithConfig(url, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+      return handleResponse<T>(response);
+    },
+    
+    delete: async <T>(url: string, data?: unknown): Promise<T> => {
+      const response = await fetchWithConfig(url, {
+        method: 'DELETE',
+        body: data ? JSON.stringify(data) : undefined,
+      });
+      return handleResponse<T>(response);
+    },
+    
+    patch: async <T>(url: string, data: unknown): Promise<T> => {
+      const response = await fetchWithConfig(url, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+      return handleResponse<T>(response);
+    },
+  };
+};
 
 // Create and export a default API client instance
-export const api = new ApiClient(); 
+export const api = createApiClient(); 

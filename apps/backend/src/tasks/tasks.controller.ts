@@ -1,6 +1,6 @@
 import { Body, Controller, Post, Get, Param, UseGuards, Logger } from '@nestjs/common';
 import { TasksService } from './tasks.service';
-import { AuthGuard } from '../auth/auth.guard';
+import { AuthGuard } from '../common/guards/auth.guard';
 import { v4 as uuidv4 } from 'uuid';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { 

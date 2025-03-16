@@ -1,11 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/lib/query/query-keys';
 import { useToast } from '@/hooks/use-toast';
-import { ApiClient } from '@/lib/api';
+import { api } from '@/lib/api';
 import { User } from '../../user/api/user-queries';
-
-// Create a singleton instance of the API client
-const apiClient = new ApiClient();
+import { authKeys } from '@/lib/query-keys';
 
 // Define profile types
 export interface Profile {
@@ -32,18 +29,18 @@ export function useProfileQuery() {
 
   // Get current user profile
   const profileQuery = useQuery({
-    queryKey: queryKeys.profile.current.queryKey,
+    queryKey: ['profile', 'current'],
     queryFn: async () => {
-      const response = await apiClient.get<Profile>('/profile');
+      const response = await api.get<Profile>('/profile');
       return response;
     },
   });
 
   // Get current user data
   const userQuery = useQuery({
-    queryKey: queryKeys.auth.user.queryKey,
+    queryKey: authKeys.profile.queryKey,
     queryFn: async () => {
-      const response = await apiClient.get<User>('/auth/me');
+      const response = await api.get<User>('/auth/profile');
       return response;
     },
   });
@@ -51,11 +48,11 @@ export function useProfileQuery() {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data: Partial<Profile>) => {
-      const response = await apiClient.patch<Profile>('/profile', data);
+      const response = await api.patch<Profile>('/profile', data);
       return response;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(queryKeys.profile.current.queryKey, data);
+      queryClient.setQueryData(['profile', 'current'], data);
       toast.success({
         message: 'Profile updated',
         description: 'Your profile has been updated successfully.',
@@ -74,13 +71,13 @@ export function useProfileQuery() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('avatar', file);
-      const response = await apiClient.post<{ avatarUrl: string }>('/profile/avatar', formData);
+      const response = await api.post<{ avatarUrl: string }>('/profile/avatar', formData);
       return response;
     },
     onSuccess: (data) => {
       // Update the profile with the new avatar URL
       queryClient.setQueryData<Profile | undefined>(
-        queryKeys.profile.current.queryKey,
+        ['profile', 'current'],
         (oldData) => oldData ? { ...oldData, avatarUrl: data.avatarUrl } : undefined
       );
       toast.success({

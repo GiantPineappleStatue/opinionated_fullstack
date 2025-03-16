@@ -1,93 +1,172 @@
-# Fullstack Boilerplate with Role-Based Authentication
+# Fullstack Boilerplate
 
-This project is a fullstack boilerplate with a robust role-based authentication system. It includes a NestJS backend and a React frontend.
+A modern, production-ready fullstack boilerplate featuring Next.js, NestJS, and a robust microservices architecture.
 
 ## Features
 
-- **User Authentication**: Complete authentication system with registration, login, and logout
-- **Role-Based Access Control**: Support for different user roles (User and Admin)
-- **Session Management**: Secure session management with Redis
-- **Admin Panel**: Administrative functionality for user management
-- **UUIDv7**: Modern UUID implementation for secure user identification
+- **Frontend**: Next.js with TypeScript, Tailwind CSS, and modern UI components
+- **Backend**: NestJS with TypeScript, featuring a modular architecture
+- **Authentication**: JWT-based authentication with session management
+- **Database**: MySQL with TypeORM for robust data management
+- **Caching**: Redis/KeyDB for high-performance caching
+- **Message Queues**: RabbitMQ and NATS for reliable message processing
+- **API Documentation**: Swagger/OpenAPI integration
+- **Testing**: Jest and React Testing Library setup
+- **Docker**: Containerization for all services
+- **CI/CD**: GitHub Actions workflow templates
+- **CLI**: Built-in command-line interface for common development tasks
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
+- Node.js (v18 or later)
+- Docker and Docker Compose
+- Git
 
-- Node.js (v18+)
-- MySQL/MariaDB
-- Redis (optional, for production)
-
-### Installation
+## Quick Start
 
 1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/fullstack-boilerplate.git
-cd fullstack-boilerplate
-```
+   ```bash
+   git clone <repository-url>
+   cd fullstack-boilerplate
+   ```
 
 2. Install dependencies:
-
-```bash
-npm install
-```
+   ```bash
+   npm install
+   ```
 
 3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` with your configuration
+
+4. Start the development environment:
+   ```bash
+   # Start all services using the CLI
+   ./cli start
+
+   # Set up the database and create a test user
+   ./cli db:setup
+   ./cli test:setup
+   ```
+
+5. Access the applications:
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:3000
+   - API Documentation: http://localhost:3000
+   - RabbitMQ Management: http://localhost:15672
+   - NATS Monitoring: http://localhost:8222
+
+## CLI Usage
+
+The project includes a command-line interface for common development tasks. The CLI can be accessed using either `./scripts/cli.sh` or the more convenient `./cli` command. Here are the available commands:
 
 ```bash
-cp .env.example .env
-# Edit .env with your database credentials
+# Show help and available commands
+./cli help
+
+# Start all services in development mode
+./cli start
+
+# Stop all services
+./cli stop
+
+# Restart all services
+./cli restart
+
+# Show logs (all services or specific service)
+./cli logs
+./cli logs -s backend
+
+# Database operations
+./cli db:setup    # Initialize database and run migrations
+./cli db:migrate  # Run database migrations
+./cli db:seed     # Seed the database with test data
+
+# Create test user for authentication
+./cli test:setup
+
+# Show status of all services
+./cli status
+
+# Clean up all containers and volumes
+./cli clean
 ```
 
-4. Start the development server:
+### Test User Credentials
+
+After running `./cli test:setup`, you can use these credentials for testing:
+- Email: test@test.com
+- Password: password123
+
+## Project Structure
+
+```
+├── frontend/                # Next.js frontend application
+├── backend/                 # NestJS backend application
+├── shared/                  # Shared types and utilities
+├── docker/                  # Docker configuration files
+├── .github/                 # GitHub Actions and templates
+├── docs/                    # Project documentation
+└── scripts/                 # Development and deployment scripts
+    └── cli.sh              # Command-line interface
+```
+
+## Development
+
+### Frontend Development
+
+The frontend is built with Next.js and includes:
+- TypeScript for type safety
+- Tailwind CSS for styling
+- Modern React patterns and hooks
+- Comprehensive component library
+- State management solution
+
+### Backend Development
+
+The backend uses NestJS and features:
+- Modular architecture
+- TypeORM for database operations
+- JWT authentication
+- Role-based access control
+- API rate limiting
+- Caching strategies
+- Message queue integration
+
+## Testing
 
 ```bash
-npm run dev
+# Run frontend tests
+npm run test:frontend
+
+# Run backend tests
+npm run test:backend
+
+# Run all tests
+npm run test
 ```
 
-### Creating an Admin User
+## Deployment
 
-To create an admin user:
+Deployment configurations are provided for:
+- Docker Compose for production
+- Kubernetes manifests
+- Cloud platform specific guides (AWS, GCP, Azure)
 
-```bash
-cd apps/backend
-npm run create-admin
-```
+## Contributing
 
-This will create an admin user with the following default credentials (unless overridden by environment variables):
-- Email: admin@example.com
-- Password: admin123
-- Name: Admin User
-
-## Architecture
-
-### Backend (NestJS)
-
-- **Authentication Module**: Handles user registration, login, and session management
-- **Admin Module**: Provides administrative functionality (user management)
-- **Guards**: Implements authentication and role-based access control
-- **Database**: MySQL/MariaDB with migrations
-
-### Frontend (React)
-
-- **Authentication Context**: Manages user authentication state
-- **Protected Routes**: Routes that require authentication
-- **Role-Based Components**: Components that are only rendered for specific user roles
-
-## Security Features
-
-- **Password Hashing**: Passwords are hashed using bcrypt
-- **Session Management**: Secure session management with Redis
-- **Role-Based Access Control**: Fine-grained access control based on user roles
-- **UUIDv7**: Modern UUID implementation for secure user identification
-
-## Documentation
-
-- [Authentication System](apps/backend/src/auth/README.md)
-- [Admin Module](apps/backend/src/admin/README.md)
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-# opinionated_fullstack
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For support, please open an issue in the repository or contact the maintainers.

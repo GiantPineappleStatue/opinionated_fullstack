@@ -1,159 +1,108 @@
 #!/bin/bash
 
-# Load environment variables
-set -a
-source .env
-set +a
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-# Set default values if not provided
-PROJECT_NAME=${PROJECT_NAME:-fullstack}
-
-# Function to display help message
-show_help() {
-  echo "Development script for the ${PROJECT_NAME} project"
-  echo ""
-  echo "Usage: $0 [command]"
-  echo ""
-  echo "Commands:"
-  echo "  start       Start all services with hot reloading"
-  echo "  stop        Stop all services"
-  echo "  restart     Restart all services"
-  echo "  logs        Show logs from all services"
-  echo "  frontend    Start only the frontend service"
-  echo "  backend     Start only the backend service"
-  echo "  python      Start only the Python service"
-  echo "  infra       Start only the infrastructure services (MySQL, Redis, RabbitMQ, NATS)"
-  echo "  clean       Remove all containers, volumes, and networks"
-  echo "  turbo       Run a Turborepo command (e.g. ./scripts/dev.sh turbo dev)"
-  echo "  turbo-start Build packages with Turborepo and start Docker services"
-  echo "  help        Show this help message"
-  echo ""
-  echo "Examples:"
-  echo "  $0 start    # Start all services"
-  echo "  $0 logs     # Show logs from all services"
-  echo "  $0 backend  # Start only the backend service and its dependencies"
-  echo "  $0 turbo dev # Run the dev script across all workspaces using Turborepo"
-  echo "  $0 turbo-start # Build packages with Turborepo and start Docker services"
+# Function to print colored messages
+print_message() {
+    echo -e "${GREEN}[DEV]${NC} $1"
 }
 
-# Function to start infrastructure services
-start_infra() {
-  echo "Starting infrastructure services..."
-  docker-compose up -d mysql redis rabbitmq nats
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
-# Function to start all services
-start_all() {
-  echo "Starting all services with hot reloading..."
-  docker-compose up -d
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
 }
 
-# Function to stop all services
-stop_all() {
-  echo "Stopping all services..."
-  docker-compose down
+# Check for required tools
+check_requirements() {
+    print_message "Checking requirements..."
+    
+    local missing_tools=()
+    
+    if ! command_exists docker; then
+        missing_tools+=("docker")
+    fi
+    
+    if ! command_exists docker-compose; then
+        missing_tools+=("docker-compose")
+    fi
+    
+    if [ ${#missing_tools[@]} -ne 0 ]; then
+        print_warning "Missing required tools: ${missing_tools[*]}"
+        print_message "Please install the missing tools and try again."
+        exit 1
+    fi
 }
 
-# Function to restart all services
-restart_all() {
-  echo "Restarting all services..."
-  docker-compose restart
+# Function to start the development environment
+start_dev() {
+    print_message "Starting development environment..."
+    
+    # Create necessary directories
+    mkdir -p apps/python/.venv
+    
+    # Start services
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+    
+    # Wait for services to be healthy
+    print_message "Waiting for services to be healthy..."
+    sleep 10
+    
+    # Check service status
+    docker-compose ps
+    
+    print_message "Development environment is ready!"
+    print_message "Frontend: http://localhost:3000"
+    print_message "Python API: http://localhost:8000"
+    print_message "Adminer (MySQL): http://localhost:8080"
+    print_message "Redis Commander: http://localhost:8081"
+    print_message "RabbitMQ Management: http://localhost:15672"
+    print_message "NATS Management: http://localhost:8222"
+}
+
+# Function to stop the development environment
+stop_dev() {
+    print_message "Stopping development environment..."
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
+}
+
+# Function to rebuild services
+rebuild_dev() {
+    print_message "Rebuilding services..."
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml build --no-cache
+    start_dev
 }
 
 # Function to show logs
 show_logs() {
-  echo "Showing logs from all services..."
-  docker-compose logs -f
+    print_message "Showing logs..."
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
 }
 
-# Function to start frontend service
-start_frontend() {
-  echo "Starting frontend service and its dependencies..."
-  docker-compose up -d backend
-  docker-compose up -d frontend
-}
-
-# Function to start backend service
-start_backend() {
-  echo "Starting backend service and its dependencies..."
-  start_infra
-  docker-compose up -d backend
-}
-
-# Function to start Python service
-start_python() {
-  echo "Starting Python service and its dependencies..."
-  docker-compose up -d rabbitmq nats
-  docker-compose up -d python
-}
-
-# Function to clean up
-clean_all() {
-  echo "Removing all containers, volumes, and networks..."
-  docker-compose down -v
-  echo "Removing dangling images..."
-  docker image prune -f
-}
-
-# Function to run Turborepo commands
-run_turbo() {
-  if [ -z "$1" ]; then
-    echo "Error: No Turborepo command specified"
-    echo "Usage: $0 turbo [command]"
-    echo "Example: $0 turbo dev"
-    exit 1
-  fi
-  
-  echo "Running Turborepo command: $1"
-  npx turbo run "$@"
-}
-
-# Function to build packages with Turborepo and start Docker services
-turbo_start() {
-  echo "Building packages with Turborepo..."
-  npx turbo run build --filter=@repo/shared-types --filter=@repo/ui
-  
-  echo "Starting all services with hot reloading..."
-  docker-compose up -d
-}
-
-# Parse command line arguments
+# Main script
 case "$1" in
-  start)
-    start_all
-    ;;
-  stop)
-    stop_all
-    ;;
-  restart)
-    restart_all
-    ;;
-  logs)
-    show_logs
-    ;;
-  frontend)
-    start_frontend
-    ;;
-  backend)
-    start_backend
-    ;;
-  python)
-    start_python
-    ;;
-  infra)
-    start_infra
-    ;;
-  clean)
-    clean_all
-    ;;
-  turbo)
-    shift
-    run_turbo "$@"
-    ;;
-  turbo-start)
-    turbo_start
-    ;;
-  help|*)
-    show_help
-    ;;
+    "start")
+        check_requirements
+        start_dev
+        ;;
+    "stop")
+        stop_dev
+        ;;
+    "rebuild")
+        rebuild_dev
+        ;;
+    "logs")
+        show_logs
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|rebuild|logs}"
+        exit 1
+        ;;
 esac 

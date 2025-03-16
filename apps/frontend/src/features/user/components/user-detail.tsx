@@ -10,87 +10,77 @@ import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/aler
 import { Skeleton } from '../../../components/ui/skeleton';
 import { Separator } from '../../../components/ui/separator';
 import { Switch } from '../../../components/ui/switch';
-import { User, UserPreferences } from '../api/user-queries';
+import { AuthUser } from '../api/user-queries';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api/api-client';
+import { useToast } from '@/hooks/use-toast';
 
 interface UserDetailProps {
   userId: string;
 }
 
 export function UserDetail({ userId }: UserDetailProps) {
-  const { 
-    user, 
-    preferences, 
-    isLoading, 
-    isError, 
-    updateUser, 
-    updatePreferences,
-    isUpdateUserPending,
-    isUpdatePreferencesPending
-  } = useUser(userId);
-
-  const [userForm, setUserForm] = useState<Partial<User>>({});
-  const [preferencesForm, setPreferencesForm] = useState<Partial<UserPreferences>>({});
+  const { data: user, isLoading, error } = useUser(userId);
   const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<Partial<AuthUser>>({});
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  // Initialize form when data is loaded
+  const updateUserMutation = useMutation({
+    mutationFn: async (data: Partial<AuthUser>) => {
+      const response = await apiClient.users.update(userId, data);
+      if ('error' in response && response.error) {
+        throw new Error(response.error.message);
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users', 'detail', userId] });
+      toast.success({
+        message: 'Success',
+        description: 'User details updated successfully',
+      });
+      setIsEditing(false);
+    },
+    onError: (error) => {
+      toast.error({
+        message: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update user details',
+      });
+    },
+  });
+
   useEffect(() => {
     if (user) {
-      setUserForm({
+      setFormData({
         name: user.name,
         email: user.email,
       });
     }
-    if (preferences) {
-      setPreferencesForm({
-        theme: preferences.theme,
-        notifications: preferences.notifications,
-      });
-    }
-  }, [user, preferences]);
+  }, [user]);
 
-  const handleUserChange = (field: keyof User, value: string) => {
-    setUserForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handlePreferencesChange = (field: keyof UserPreferences, value: string | boolean) => {
-    setPreferencesForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSave = async () => {
-    if (Object.keys(userForm).length > 0) {
-      updateUser(userForm);
+  const handleSave = () => {
+    if (Object.keys(formData).length > 0) {
+      updateUserMutation.mutate(formData);
     }
-    if (Object.keys(preferencesForm).length > 0) {
-      updatePreferences(preferencesForm);
-    }
-    setIsEditing(false);
   };
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-8 w-1/3" />
-          <Skeleton className="h-4 w-2/3" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-24 w-full" />
+      </div>
     );
   }
 
-  if (isError) {
+  if (error) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error</AlertTitle>
         <AlertDescription>
-          Failed to load user details. Please try again later.
+          {error instanceof Error ? error.message : 'Failed to load user details'}
         </AlertDescription>
       </Alert>
     );
@@ -98,133 +88,92 @@ export function UserDetail({ userId }: UserDetailProps) {
 
   if (!user) {
     return (
-      <Alert>
+      <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>User not found</AlertTitle>
-        <AlertDescription>
-          The requested user could not be found.
-        </AlertDescription>
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>User not found</AlertDescription>
       </Alert>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <UserIcon className="h-5 w-5" />
-            <CardTitle>User Details</CardTitle>
-          </div>
-          <Badge variant={user.role === 'admin' ? 'default' : 'outline'}>
-            {user.role}
-          </Badge>
-        </div>
-        <CardDescription>View and manage user information</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>User Information</CardTitle>
+          <CardDescription>View and manage user details</CardDescription>
+        </CardHeader>
+        <CardContent>
           <div className="space-y-4">
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Name</Label>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label>Email</Label>
                 {isEditing ? (
                   <Input
-                    id="name"
-                    value={userForm.name || ''}
-                    onChange={(e) => handleUserChange('name', e.target.value)}
+                    value={formData.email || ''}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 ) : (
-                  <div className="rounded-md border p-2">{user.name || 'N/A'}</div>
+                  <div className="text-sm">{user.email}</div>
                 )}
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                {isEditing ? (
-                  <Input
-                    id="email"
-                    value={userForm.email || ''}
-                    onChange={(e) => handleUserChange('email', e.target.value)}
-                  />
-                ) : (
-                  <div className="rounded-md border p-2">{user.email}</div>
-                )}
-              </div>
+              <Badge variant={user.emailVerified ? 'default' : 'destructive'}>
+                {user.emailVerified ? 'Verified' : 'Not Verified'}
+              </Badge>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Name</Label>
+              {isEditing ? (
+                <Input
+                  value={formData.name || ''}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              ) : (
+                <div className="text-sm">{user.name || 'Not set'}</div>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <Label>Role</Label>
+              <div className="text-sm">{user.role}</div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Created At</Label>
+              <div className="text-sm">{new Date(user.createdAt).toLocaleString()}</div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Last Updated</Label>
+              <div className="text-sm">{new Date(user.updatedAt).toLocaleString()}</div>
             </div>
           </div>
-
-          {preferences && (
-            <>
-              <Separator />
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Preferences</h3>
-                <div className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="theme">Theme</Label>
-                    {isEditing ? (
-                      <select
-                        id="theme"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        value={preferencesForm.theme || preferences.theme}
-                        onChange={(e) => handlePreferencesChange('theme', e.target.value)}
-                      >
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                        <option value="system">System</option>
-                      </select>
-                    ) : (
-                      <div className="rounded-md border p-2 capitalize">{preferences.theme}</div>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="notifications">Notifications</Label>
-                    {isEditing ? (
-                      <Switch
-                        id="notifications"
-                        checked={preferencesForm.notifications ?? preferences.notifications}
-                        onCheckedChange={(checked) => handlePreferencesChange('notifications', checked)}
-                      />
-                    ) : (
-                      <Badge variant={preferences.notifications ? 'default' : 'outline'}>
-                        {preferences.notifications ? 'Enabled' : 'Disabled'}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <div className="text-sm text-muted-foreground">
-          Last updated: {new Date(user.updatedAt).toLocaleDateString()}
-        </div>
-        <div className="flex space-x-2">
+        </CardContent>
+        <CardFooter>
           {isEditing ? (
-            <Button 
-              onClick={handleSave}
-              disabled={isUpdateUserPending || isUpdatePreferencesPending}
-            >
-              {(isUpdateUserPending || isUpdatePreferencesPending) ? (
-                <>
-                  <Skeleton className="h-4 w-4 mr-2" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => setIsEditing(false)}>Cancel</Button>
+              <Button 
+                variant="default" 
+                onClick={handleSave}
+                disabled={updateUserMutation.isPending}
+              >
+                {updateUserMutation.isPending ? (
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-4 w-4" />
+                    Saving...
+                  </div>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+            </div>
           ) : (
-            <Button variant="outline" onClick={() => setIsEditing(true)}>
-              Edit
-            </Button>
+            <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
           )}
-        </div>
-      </CardFooter>
-    </Card>
+        </CardFooter>
+      </Card>
+    </div>
   );
 } 

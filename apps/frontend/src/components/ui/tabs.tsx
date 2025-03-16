@@ -26,10 +26,10 @@ const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(
   ({ defaultValue, value, onValueChange, children, className, ...props }, ref) => {
     const [activeTab, setActiveTabInternal] = React.useState(value || defaultValue || "");
     
-    const setActiveTab = React.useCallback((newValue: string) => {
+    const setActiveTab = (newValue: string) => {
       setActiveTabInternal(newValue);
       onValueChange?.(newValue);
-    }, [onValueChange]);
+    };
     
     // Update internal state when controlled value changes
     React.useEffect(() => {

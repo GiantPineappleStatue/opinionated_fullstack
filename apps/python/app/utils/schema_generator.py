@@ -18,6 +18,7 @@ settings = get_settings()
 CURRENT_DIR = Path(__file__).parent
 MODELS_DIR = CURRENT_DIR.parent / "models"
 OPENAPI_JSON_PATH = CURRENT_DIR / "openapi.json"
+MODELS_PATH = MODELS_DIR / "nestjs_models.py"
 
 async def fetch_openapi_schema():
     """Fetch the OpenAPI schema from the NestJS backend."""
@@ -46,7 +47,7 @@ def generate_models():
         cmd = [
             "datamodel-codegen",
             "--input", str(OPENAPI_JSON_PATH),
-            "--output", str(MODELS_DIR / "nestjs_models.py"),
+            "--output", str(MODELS_PATH),
             "--input-file-type", "openapi",
             "--output-model-type", "pydantic.BaseModel",
             "--target-python-version", "3.10",
@@ -59,7 +60,7 @@ def generate_models():
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode == 0:
-            logger.info(f"Pydantic models generated successfully at {MODELS_DIR / 'nestjs_models.py'}")
+            logger.info(f"Pydantic models generated successfully at {MODELS_PATH}")
             
             # Create __init__.py if it doesn't exist
             init_path = MODELS_DIR / "__init__.py"
@@ -75,8 +76,17 @@ def generate_models():
         logger.error(f"Error generating models: {e}")
         return False
 
-async def update_models():
-    """Update the Pydantic models from the NestJS OpenAPI schema."""
+async def update_models(force: bool = False):
+    """Update the Pydantic models from the NestJS OpenAPI schema.
+    
+    Args:
+        force (bool): If True, regenerate models even if they already exist.
+    """
+    # Check if models already exist and force is False
+    if not force and MODELS_PATH.exists():
+        logger.info("Models already exist and force=False, skipping generation")
+        return True
+    
     # Fetch the schema
     schema_fetched = await fetch_openapi_schema()
     

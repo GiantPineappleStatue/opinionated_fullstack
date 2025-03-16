@@ -78,16 +78,30 @@ export class JwtService {
    */
   async validateAccessToken(token: string): Promise<TokenPayload | null> {
     try {
+      this.logger.debug('[JwtService] Validating access token');
       const payload = await this.jwtService.verifyAsync<TokenPayload>(token);
       
+      this.logger.debug('[JwtService] Token payload:', {
+        sub: payload.sub,
+        email: payload.email,
+        type: payload.type
+      });
+      
       if (payload.type !== 'access') {
-        this.logger.warn('Token type mismatch: expected access token');
+        this.logger.warn('[JwtService] Token type mismatch:', {
+          expected: 'access',
+          received: payload.type
+        });
         return null;
       }
       
+      this.logger.debug('[JwtService] Access token validated successfully');
       return payload;
     } catch (error) {
-      this.logger.warn('Access token validation failed:', error.message);
+      this.logger.warn('[JwtService] Access token validation failed:', {
+        error: error.message,
+        stack: error.stack
+      });
       return null;
     }
   }

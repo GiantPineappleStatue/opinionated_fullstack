@@ -3,11 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { LoginRequestV2 } from '@repo/shared-types';
-
-// Import from features/auth
-import { useAuth } from '@/features/auth';
-
-// Import UI components
+import { useAuth } from '@/auth';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -19,28 +15,50 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
+import { AuthContextInterface } from '@/auth';
+import { useState } from 'react';
 
 const formSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 export const Route = createFileRoute('/login')({
   beforeLoad: ({ context }) => {
-    // Redirect to dashboard if already authenticated and not loading
-    if (context.auth.isAuthenticated && !context.auth.isLoading) {
+    if (!context.auth) {
+      console.log('Auth context not available in route');
+      return;
+    }
+    
+    const auth = context.auth as AuthContextInterface;
+    console.log('Login route: Checking auth state:', {
+      isAuthenticated: auth.isAuthenticated,
+      isLoading: auth.isLoading
+    });
+    
+    // If we're still loading, don't redirect yet
+    if (auth.isLoading) {
+      return;
+    }
+    
+    // Redirect to dashboard if already authenticated
+    if (auth.isAuthenticated) {
+      console.log('Login route: User already authenticated, redirecting to dashboard');
       throw redirect({
-        to: '/dashboard',
+        to: '/dashboard',        
+        search: {
+          redirect: location.href,
+        },
       });
     }
   },
   component: LoginPage,
 });
 
-function LoginPage() {
-  const navigate = useNavigate();
-  const { login, isLoginPending } = useAuth();
-  
+export default function LoginPage() {
+  const { login } = useAuth();
+
   const form = useForm<LoginRequestV2>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -50,18 +68,22 @@ function LoginPage() {
   });
 
   const onSubmit = async (data: LoginRequestV2) => {
-    await login(data);
-    navigate({ to: '/dashboard' });
+    try {
+      // The login mutation from auth context handles navigation and error toasts
+      await login(data);
+    } catch (error) {
+      // Error is handled by the mutation's onError callback
+      console.error('Login error:', error);
+    }
   };
 
+  const isSubmitting = form.formState.isSubmitting;
+
   return (
-    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Welcome back</CardTitle>
-          <CardDescription>
-            Enter your email and password to sign in to your account
-          </CardDescription>
+          <CardTitle className="text-2xl font-bold">Login</CardTitle>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -77,6 +99,7 @@ function LoginPage() {
                         type="email"
                         placeholder="Enter your email"
                         {...field}
+                        disabled={isSubmitting}
                       />
                     </FormControl>
                     <FormMessage />
@@ -94,31 +117,30 @@ function LoginPage() {
                         type="password"
                         placeholder="Enter your password"
                         {...field}
+                        disabled={isSubmitting}
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoginPending}>
-                {isLoginPending ? 'Signing in...' : 'Sign in'}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Logging in...
+                  </>
+                ) : (
+                  'Login'
+                )}
               </Button>
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="text-sm text-muted-foreground">
-            <Link to="/forgot-password" className="hover:text-primary">
-              Forgot your password?
-            </Link>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Don't have an account?{' '}
-            <Link to="/register" className="hover:text-primary">
-              Sign up
-            </Link>
-          </div>
-        </CardFooter>
       </Card>
     </div>
   );

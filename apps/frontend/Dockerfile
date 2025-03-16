@@ -1,37 +1,37 @@
+# syntax=docker/dockerfile:1.4
+
 FROM node:20-alpine AS base
 
-# Add turbo
-FROM base AS turbo-builder
-RUN npm install -g turbo
+# Set up turbo for pruning
+FROM base AS builder
 WORKDIR /app
+RUN npm install -g turbo
 COPY . .
 RUN turbo prune frontend --docker
 
 # Install dependencies
 FROM base AS installer
 WORKDIR /app
-COPY --from=turbo-builder /app/out/json/ .
-COPY --from=turbo-builder /app/out/package-lock.json ./package-lock.json
-RUN npm install
+COPY --from=builder /app/out/json/ .
+COPY --from=builder /app/out/package-lock.json ./package-lock.json
+RUN npm ci
 
-# Build the project
-FROM installer AS app-builder
-WORKDIR /app
-COPY --from=turbo-builder /app/out/full/ .
-RUN npm run build --workspace=frontend
+# Copy source code
+COPY --from=builder /app/out/full/ .
 
-# Production image
-FROM nginx:alpine AS production
-COPY --from=app-builder /app/apps/frontend/dist /usr/share/nginx/html
-COPY apps/frontend/nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-
-# Development image
+# Development stage
 FROM installer AS development
 WORKDIR /app
 ENV NODE_ENV=development
+EXPOSE 5173
+WORKDIR /app/apps/frontend
+CMD ["npm", "run", "dev"]
 
-COPY --from=turbo-builder /app/out/full/ .
-EXPOSE 3000
-CMD ["npm", "run", "dev", "--workspace=frontend", "--", "--host", "0.0.0.0"] 
+# Build and Production stage
+FROM installer AS production
+WORKDIR /app
+ENV NODE_ENV=production
+RUN npm run build --workspace=apps/frontend
+WORKDIR /app/apps/frontend
+EXPOSE 5173
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "5173"] 

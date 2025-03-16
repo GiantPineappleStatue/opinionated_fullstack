@@ -17,15 +17,18 @@ import { AuthService } from './auth.service';
 import { 
   LoginRequestV2, 
   RegisterRequestV2, 
-  AuthResponseV2, 
-  ApiResponseV2
+  AuthResponseDto, 
+  ApiResponseV2,
+  UserRole
 } from '@repo/shared-types';
 import { Request, Response } from 'express';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiCookieAuth, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles, UserRole } from '../common/guards/roles.guard';
+import { Roles } from '../common/guards/roles.guard';
+import { ApiResponseWithError } from '../common/types/api-response';
+import { Logger } from '@nestjs/common';
 
 // Define types for account management
 interface UpdateProfileRequest {
@@ -53,6 +56,8 @@ interface VerifyEmailRequest {
 @Controller('auth')
 @UseGuards(AuthGuard, RolesGuard)
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private readonly authService: AuthService) {}
 
   @Public()
@@ -88,13 +93,76 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Body() loginData: LoginRequestV2
-  ): Promise<ApiResponseV2<AuthResponseV2>> {
-    const result = await this.authService.login(req, res, loginData);
-    return {
-      data: result,
-      status: HttpStatus.OK,
-      message: 'Login successful',
-    };
+  ): Promise<ApiResponseV2<AuthResponseDto>> {
+    this.logger.debug('=== LOGIN ENDPOINT START ===');
+    this.logger.debug('Raw request body:', req.body);
+    this.logger.debug('Content-Type:', req.headers['content-type']);
+    this.logger.debug('Request method:', req.method);
+    this.logger.debug('Request URL:', req.url);
+    this.logger.debug('Login data from @Body():', loginData);
+    this.logger.debug('Headers:', req.headers);
+    this.logger.debug('=== LOGIN ENDPOINT DATA END ===');
+
+    console.log('[AuthController] Login request received:', { 
+      email: loginData.email,
+      hasPassword: !!loginData.password,
+      headers: {
+        'content-type': req.headers['content-type'],
+        'cookie': req.headers['cookie'],
+        'origin': req.headers['origin']
+      },
+      cookies: req.cookies,
+      sessionID: req.sessionID,
+      body: req.body,
+      method: req.method,
+      url: req.url,
+      rawBody: req.body
+    });
+    
+    try {
+      console.log('[AuthController] Validating login data:', {
+        email: loginData.email,
+        passwordLength: loginData.password?.length
+      });
+
+      if (!loginData.email || !loginData.password) {
+        console.error('[AuthController] Missing required login fields:', {
+          hasEmail: !!loginData.email,
+          hasPassword: !!loginData.password
+        });
+        throw new UnauthorizedException('Email and password are required');
+      }
+
+      console.log('[AuthController] Calling auth service login');
+      const result = await this.authService.login(req, res, loginData);
+      
+      console.log('[AuthController] Login successful:', { 
+        userId: result.user.id,
+        email: result.user.email,
+        sessionID: req.sessionID,
+        cookies: res.getHeader('set-cookie')
+      });
+      
+      return {
+        data: {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name || '',
+          role: UserRole.USER,
+          emailVerified: result.user.emailVerified
+        },
+        status: HttpStatus.OK,
+        message: 'Login successful',
+      };
+    } catch (error) {
+      console.error('[AuthController] Login failed:', {
+        email: loginData.email,
+        error: error.message,
+        stack: error.stack,
+        type: error.constructor.name
+      });
+      throw error;
+    }
   }
 
   @Public()
@@ -130,10 +198,16 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Body() registerData: RegisterRequestV2
-  ): Promise<ApiResponseV2<AuthResponseV2>> {
+  ): Promise<ApiResponseV2<AuthResponseDto>> {
     const result = await this.authService.register(req, res, registerData);
     return {
-      data: result,
+      data: {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name || '',
+        role: UserRole.USER,
+        emailVerified: result.user.emailVerified
+      },
       status: HttpStatus.CREATED,
       message: 'Registration successful',
     };
@@ -167,35 +241,76 @@ export class AuthController {
   }
 
   @Get('profile')
-  @ApiOperation({ summary: 'Get user profile', description: 'Retrieve the current user\'s profile information' })
+  @ApiOperation({ summary: 'Get user profile', description: 'Get the current user\'s profile information' })
   @ApiCookieAuth()
   @ApiResponse({ 
     status: HttpStatus.OK, 
     description: 'Profile retrieved successfully',
-    schema: {
+    schema: { 
       example: {
         data: {
           id: '1',
           email: 'user@example.com',
           name: 'John Doe',
-          createdAt: '2023-01-01T00:00:00.000Z'
+          role: 'user',
+          createdAt: '2023-01-01T00:00:00.000Z',
+          updatedAt: '2023-01-01T00:00:00.000Z',
+          emailVerified: true
         },
         status: 200,
         message: 'Profile retrieved successfully'
       }
     }
   })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Not authenticated' })
-  async getProfile(@Req() req: Request): Promise<ApiResponseV2<any>> {
+  @ApiResponse({ 
+    status: HttpStatus.UNAUTHORIZED, 
+    description: 'Not authenticated',
+    schema: { 
+      example: {
+        data: null,
+        status: 401,
+        message: 'Authentication required',
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required'
+        }
+      }
+    }
+  })
+  async getProfile(@Req() req: Request): Promise<ApiResponseV2<any> | ApiResponseWithError<any>> {
+    console.log('[AuthController] Profile request received:', {
+      sessionID: req.sessionID,
+      cookies: req.cookies,
+      headers: req.headers,
+      session: req.session
+    });
+
     try {
       const user = await this.authService.getProfile(req);
+      console.log('[AuthController] Profile retrieved successfully:', {
+        userId: user.id,
+        email: user.email,
+        sessionID: req.sessionID
+      });
       return {
         data: user,
         status: HttpStatus.OK,
         message: 'Profile retrieved successfully',
       };
     } catch (error) {
-      // Let the exception filter handle the error
+      console.error('[AuthController] Profile retrieval failed:', {
+        error: error.message,
+        stack: error.stack,
+        sessionID: req.sessionID
+      });
+      // Handle unauthorized errors with proper response format instead of throwing
+      if (error instanceof UnauthorizedException) {
+        return ApiResponseWithError.unauthorized(
+          'Authentication required',
+          error.message || 'You must be logged in to access this resource'
+        );
+      }
+      // For other errors, rethrow
       throw error;
     }
   }
@@ -453,6 +568,48 @@ export class AuthController {
       data: { verified },
       status: HttpStatus.OK,
       message: 'Email verification status',
+    };
+  }
+
+  @Public()
+  @Post('test')
+  @HttpCode(HttpStatus.OK)
+  async test(@Req() req: Request, @Body() body: any) {
+    this.logger.debug('=== TEST ENDPOINT HIT ===');
+    this.logger.debug('Request method:', req.method);
+    this.logger.debug('Request URL:', req.url);
+    this.logger.debug('Headers:', req.headers);
+    this.logger.debug('Body:', body);
+    this.logger.debug('Raw body:', req.body);
+    this.logger.debug('=== TEST ENDPOINT END ===');
+
+    return {
+      message: 'Test endpoint working',
+      received: {
+        method: req.method,
+        url: req.url,
+        body: body,
+        headers: req.headers
+      }
+    };
+  }
+
+  @Public()
+  @Get('test')
+  async testGet(@Req() req: Request) {
+    this.logger.debug('=== TEST GET ENDPOINT HIT ===');
+    this.logger.debug('Request method:', req.method);
+    this.logger.debug('Request URL:', req.url);
+    this.logger.debug('Headers:', req.headers);
+    this.logger.debug('=== TEST GET ENDPOINT END ===');
+
+    return {
+      message: 'Test GET endpoint working',
+      received: {
+        method: req.method,
+        url: req.url,
+        headers: req.headers
+      }
     };
   }
 } 

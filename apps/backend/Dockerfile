@@ -1,43 +1,40 @@
+# syntax=docker/dockerfile:1.4
+
+# Base stage for shared dependencies
 FROM node:20-alpine AS base
-
-# Add turbo
-FROM base AS turbo-builder
-RUN npm install -g turbo
 WORKDIR /app
-COPY . .
-RUN turbo prune @repo/backend --docker
+COPY package*.json ./
+COPY turbo.json ./
+COPY apps/backend/package*.json ./apps/backend/
+COPY packages/shared-types/package*.json ./packages/shared-types/
+COPY packages/typescript-config/package*.json ./packages/typescript-config/
 
-# Install dependencies
-FROM base AS installer
-WORKDIR /app
-COPY --from=turbo-builder /app/out/json/ .
-COPY --from=turbo-builder /app/out/package-lock.json ./package-lock.json
+# Development stage
+FROM base AS development
+RUN apk add --no-cache wget redis
 RUN npm install
+COPY . .
+ENV NODE_ENV=development
+EXPOSE 3000
+WORKDIR /app/apps/backend
+CMD ["npm", "run", "dev"]
 
-# Build the project
-FROM installer AS app-builder
-WORKDIR /app
-COPY --from=turbo-builder /app/out/full/ .
-RUN npm run build --workspace=@repo/backend
+# Build stage
+FROM base AS builder
+RUN npm ci
+COPY . .
+ENV NODE_ENV=production
+RUN npm run build --workspace=apps/backend
 
-# Production image
+# Production stage
 FROM node:20-alpine AS production
 WORKDIR /app
+COPY --from=builder /app/apps/backend/dist ./dist
+COPY --from=builder /app/apps/backend/package*.json ./
+COPY --from=builder /app/package*.json ./
+RUN npm ci --only=production
+RUN apk add --no-cache wget redis
 ENV NODE_ENV=production
-
-# Copy built app and dependencies
-COPY --from=app-builder /app/apps/backend/dist ./dist
-COPY --from=app-builder /app/apps/backend/package.json ./package.json
-COPY --from=app-builder /app/node_modules ./node_modules
-
-EXPOSE ${PORT:-3001}
-CMD ["node", "dist/main"]
-
-# Development image
-FROM installer AS development
-WORKDIR /app
-ENV NODE_ENV=development
-
-COPY --from=turbo-builder /app/out/full/ .
-EXPOSE ${PORT:-3001}
-CMD ["npm", "run", "dev", "--workspace=@repo/backend"] 
+EXPOSE 3000
+USER node
+CMD ["npm", "run", "start:prod"] 

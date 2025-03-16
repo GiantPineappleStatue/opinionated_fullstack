@@ -18,6 +18,8 @@ export interface ErrorContext {
   action?: string;
   component?: string;
   additionalData?: Record<string, unknown>;
+  error?: unknown;
+  url?: string;
 }
 
 // Define error log entry interface

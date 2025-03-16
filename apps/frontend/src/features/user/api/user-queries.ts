@@ -1,21 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/lib/query/query-keys';
 import { useToast } from '@/hooks/use-toast';
-import { ApiClient } from '@/lib/api';
-
-// Create a singleton instance of the API client
-const apiClient = new ApiClient();
+import { api } from '@/lib/api';
+import type { User } from '@repo/shared-types';
 
 // Define user types
-export interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  role: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface UserPreferences {
   id: string;
   userId: string;
@@ -31,9 +19,9 @@ export function useUserQuery(userId: string) {
 
   // Get user by ID
   const userQuery = useQuery({
-    queryKey: queryKeys.users.detail(userId).queryKey,
+    queryKey: ['users', 'detail', userId],
     queryFn: async () => {
-      const response = await apiClient.get<User>(`/users/${userId}`);
+      const response = await api.get<User>(`/users/${userId}`);
       return response;
     },
     enabled: !!userId,
@@ -41,9 +29,9 @@ export function useUserQuery(userId: string) {
 
   // Get user preferences
   const preferencesQuery = useQuery({
-    queryKey: queryKeys.users.preferences(userId).queryKey,
+    queryKey: ['users', 'preferences', userId],
     queryFn: async () => {
-      const response = await apiClient.get<UserPreferences>(`/users/${userId}/preferences`);
+      const response = await api.get<UserPreferences>(`/users/${userId}/preferences`);
       return response;
     },
     enabled: !!userId,
@@ -52,11 +40,11 @@ export function useUserQuery(userId: string) {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async (data: Partial<User>) => {
-      const response = await apiClient.patch<User>(`/users/${userId}`, data);
+      const response = await api.patch<User>(`/users/${userId}`, data);
       return response;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(queryKeys.users.detail(userId).queryKey, data);
+      queryClient.setQueryData(['users', 'detail', userId], data);
       toast.success({
         message: 'User updated',
         description: 'User information has been updated successfully.',
@@ -73,11 +61,11 @@ export function useUserQuery(userId: string) {
   // Update user preferences mutation
   const updatePreferencesMutation = useMutation({
     mutationFn: async (data: Partial<UserPreferences>) => {
-      const response = await apiClient.patch<UserPreferences>(`/users/${userId}/preferences`, data);
+      const response = await api.patch<UserPreferences>(`/users/${userId}/preferences`, data);
       return response;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(queryKeys.users.preferences(userId).queryKey, data);
+      queryClient.setQueryData(['users', 'preferences', userId], data);
       toast.success({
         message: 'Preferences updated',
         description: 'User preferences have been updated successfully.',
@@ -108,9 +96,9 @@ export function useUsersListQuery() {
   const toast = useToast();
 
   const usersQuery = useQuery({
-    queryKey: queryKeys.users.list.queryKey,
+    queryKey: ['users', 'list'],
     queryFn: async () => {
-      const response = await apiClient.get<User[]>('/admin/users');
+      const response = await api.get<User[]>('/admin/users');
       return response;
     },
   });
@@ -118,7 +106,7 @@ export function useUsersListQuery() {
   // Promote user to admin mutation
   const promoteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const response = await apiClient.post<User>(`/admin/users/${userId}/promote`, {});
+      const response = await api.post<User>(`/admin/users/${userId}/promote`, {});
       return response;
     },
     onSuccess: () => {
@@ -131,7 +119,7 @@ export function useUsersListQuery() {
     },
     onError: (error) => {
       toast.error({
-        message: 'Promotion failed',
+        message: 'Update failed',
         description: error instanceof Error ? error.message : 'An error occurred',
       });
     },

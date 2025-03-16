@@ -50,21 +50,26 @@ export class AuthService {
   }
 
   async validateUser(email: string, password: string): Promise<User | null> {
+    this.logger.debug('[AuthService] Validating user credentials:', { email });
+    
     // Try to get user from cache first
     const cacheKey = `user:email:${email}`;
     const cachedUser = await this.cacheManager.get(cacheKey);
     
     if (cachedUser) {
+      this.logger.debug('[AuthService] User found in cache');
       // If user is in cache, verify password
       const user = User.fromDatabaseRow(cachedUser);
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
+        this.logger.debug('[AuthService] Invalid password for cached user');
         return null;
       }
       
       return user;
     }
 
+    this.logger.debug('[AuthService] User not found in cache, querying database');
     // If not in cache, query database using transaction
     const userData = await this.databaseService.transaction(async (connection) => {
       const [rows] = await connection.query(
@@ -77,6 +82,7 @@ export class AuthService {
     });
 
     if (!userData) {
+      this.logger.debug('[AuthService] User not found in database');
       return null;
     }
 
@@ -84,13 +90,16 @@ export class AuthService {
     
     // Cache user for future requests (5 minutes TTL)
     await this.cacheManager.set(cacheKey, userData, 300000);
+    this.logger.debug('[AuthService] User cached for future requests');
     
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
+      this.logger.debug('[AuthService] Invalid password for database user');
       return null;
     }
 
+    this.logger.debug('[AuthService] User validation successful');
     return user;
   }
 
@@ -113,6 +122,7 @@ export class AuthService {
       secure: this.secureCookies,
       sameSite: 'lax',
       maxAge: this.accessTokenExpiration * 1000, // convert to milliseconds
+      path: '/api'
     });
 
     // Set refresh token cookie (long-lived)
@@ -129,38 +139,86 @@ export class AuthService {
    * Clear authentication cookies
    */
   private clearAuthCookies(res: Response): void {
-    res.clearCookie(ACCESS_TOKEN_COOKIE);
+    res.clearCookie(ACCESS_TOKEN_COOKIE, { path: '/api' });
     res.clearCookie(REFRESH_TOKEN_COOKIE, { path: '/api/auth/refresh' });
   }
 
   async login(req: Request, res: Response, loginData: LoginRequestV2): Promise<AuthResponseV2> {
-    const user = await this.validateUser(loginData.email, loginData.password);
+    this.logger.debug('[AuthService] Processing login request:', { 
+      email: loginData.email,
+      sessionID: req.sessionID,
+      hasSession: !!req.session,
+      sessionData: req.session
+    });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    try {
+      this.logger.debug('[AuthService] Validating user credentials');
+      const user = await this.validateUser(loginData.email, loginData.password);
 
-    // Set authentication cookies
-    await this.setAuthCookies(res, user.id, user.email, user.role);
+      if (!user) {
+        this.logger.error('[AuthService] Login failed: Invalid credentials for email:', loginData.email);
+        throw new UnauthorizedException('Invalid credentials');
+      }
 
-    // For backward compatibility, also set the session
-    const sessionUser: SessionUser = {
-      id: user.id,
-      email: user.email,
-      name: user.name ?? null,
-      role: user.role || UserRole.USER,
-    };
-    this.sessionService.setSession(req, user.id, sessionUser);
+      this.logger.debug('[AuthService] User validated successfully:', {
+        userId: user.id,
+        email: user.email,
+        role: user.role
+      });
 
-    return {
-      user: {
+      this.logger.debug('[AuthService] Setting auth cookies');
+      // Set authentication cookies
+      await this.setAuthCookies(res, user.id, user.email, user.role);
+
+      this.logger.debug('[AuthService] Setting session');
+      // For backward compatibility, also set the session
+      const sessionUser: SessionUser = {
         id: user.id,
         email: user.email,
-        name: user.name ?? '',
-        createdAt: user.created_at instanceof Date ? user.created_at.toISOString() : user.created_at,
-        updatedAt: user.updated_at instanceof Date ? user.updated_at.toISOString() : user.updated_at,
+        name: user.name ?? null,
+        role: user.role || UserRole.USER,
+      };
+
+      try {
+        this.sessionService.setSession(req, user.id, sessionUser);
+        this.logger.debug('[AuthService] Session set successfully:', {
+          userId: user.id,
+          sessionID: req.sessionID
+        });
+      } catch (error) {
+        this.logger.error('[AuthService] Error setting session:', {
+          error: error.message,
+          stack: error.stack,
+          sessionID: req.sessionID
+        });
+        // Continue even if session fails, as we have JWT cookies
       }
-    };
+
+      this.logger.debug('[AuthService] Login successful:', { 
+        userId: user.id,
+        email: user.email,
+        sessionID: req.sessionID,
+        cookies: res.getHeader('set-cookie')
+      });
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name ?? '',
+          createdAt: user.created_at instanceof Date ? user.created_at.toISOString() : user.created_at,
+          updatedAt: user.updated_at instanceof Date ? user.updated_at.toISOString() : user.updated_at,
+        }
+      };
+    } catch (error) {
+      this.logger.error('[AuthService] Login process failed:', {
+        email: loginData.email,
+        error: error.message,
+        stack: error.stack,
+        type: error.constructor.name
+      });
+      throw error;
+    }
   }
 
   /**
@@ -442,83 +500,45 @@ export class AuthService {
   }
 
   async getProfile(req: Request): Promise<User> {
+    this.logger.debug('[AuthService] Getting user profile, checking token first:', {
+      sessionID: req.sessionID,
+      cookies: req.cookies,
+      headers: req.headers
+    });
+
     // First try to get user ID from the access token
-    const accessToken = req.cookies[ACCESS_TOKEN_COOKIE];
-    let userId: string | null = null;
+    const userId = await this.getUserIdFromToken(req);
     
-    if (accessToken) {
-      try {
-        const payload = await this.jwtService.validateAccessToken(accessToken);
-        if (payload) {
-          userId = payload.sub;
-        }
-      } catch (error) {
-        this.logger.debug(`Invalid access token: ${error.message}`);
-        // Continue to try session-based auth
-      }
-    }
-    
-    // If no valid access token, fall back to session
-    if (!userId && req.session && req.session.userId) {
-      userId = req.session.userId;
-    }
-    
+    this.logger.debug('[AuthService] getUserIdFromToken result:', {
+      userId,
+      sessionID: req.sessionID
+    });
+
     if (!userId) {
-      throw new UnauthorizedException('Not authenticated');
+      this.logger.error('[AuthService] No valid user ID found in token or session');
+      throw new UnauthorizedException('Invalid or expired token');
     }
 
     try {
-      // Try to get user from cache first
-      const cacheKey = `user:id:${userId}`;
-      const cachedUser = await this.cacheManager.get(cacheKey);
+      this.logger.debug('[AuthService] Fetching user profile from database:', { userId });
+      const user = await this.getUserById(userId);
       
-      if (cachedUser) {
-        return User.fromDatabaseRow(cachedUser);
-      }
-
-      // If not in cache, query database using transaction
-      const userData = await this.databaseService.transaction(async (connection) => {
-        const [rows] = await connection.query(
-          'SELECT * FROM users WHERE id = ?',
-          [userId]
-        );
-        
-        const users = rows as any[];
-        return users.length > 0 ? users[0] : null;
-      });
-
-      if (!userData) {
+      if (!user) {
+        this.logger.error('[AuthService] User not found in database:', { userId });
         throw new UnauthorizedException('User not found');
       }
-
-      const user = User.fromDatabaseRow(userData);
       
-      // Cache user for future requests (5 minutes TTL)
-      await this.cacheManager.set(cacheKey, userData, 300000);
-
+      this.logger.debug('[AuthService] User profile retrieved successfully:', {
+        userId: user.id,
+        email: user.email
+      });
+      
       return user;
     } catch (error) {
-      // If database is disabled or there's an error, check if we're in development mode
-      if (this.configService.get('NODE_ENV') === 'development' && 
-          this.configService.get('DB_ENABLED') === 'false') {
-        // In development with disabled DB, return a mock user
-        return new User({
-          id: userId,
-          email: 'dev@example.com',
-          name: 'Development User',
-          role: UserRole.USER,
-          created_at: new Date(),
-          updated_at: new Date(),
-          password: 'not-a-real-password'
-        });
-      }
-      
-      // For other errors, rethrow but ensure it's not a 500
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      
-      this.logger.error(`Error fetching user profile: ${error.message}`, error.stack);
+      this.logger.error(`[AuthService] Error fetching user profile: ${error.message}`, {
+        error: error.stack,
+        userId
+      });
       throw new UnauthorizedException('Authentication failed');
     }
   }
@@ -619,6 +639,56 @@ export class AuthService {
   }
 
   /**
+   * Get user ID from access token or session
+   */
+  private async getUserIdFromToken(req: Request): Promise<string | null> {
+    const accessToken = req.cookies[ACCESS_TOKEN_COOKIE];
+    let userId: string | null = null;
+    
+    this.logger.debug('[AuthService] Getting user ID from token:', {
+      hasAccessToken: !!accessToken,
+      sessionID: req.sessionID,
+      cookies: req.cookies
+    });
+    
+    if (accessToken) {
+      try {
+        this.logger.debug('[AuthService] Validating access token');
+        const payload = await this.jwtService.validateAccessToken(accessToken);
+        
+        if (payload) {
+          userId = payload.sub;
+          this.logger.debug('[AuthService] Valid access token found:', {
+            userId,
+            email: payload.email
+          });
+        }
+      } catch (error) {
+        this.logger.debug('[AuthService] Invalid access token:', {
+          error: error.message,
+          stack: error.stack
+        });
+        // Continue to try session-based auth
+      }
+    }
+    
+    // If no valid access token, fall back to session
+    if (!userId && req.session && req.session.userId) {
+      userId = req.session.userId;
+      this.logger.debug('[AuthService] Using session-based auth:', {
+        userId,
+        sessionID: req.sessionID
+      });
+    }
+    
+    if (!userId) {
+      this.logger.debug('[AuthService] No valid user ID found in token or session');
+    }
+    
+    return userId;
+  }
+
+  /**
    * Get user by ID
    */
   private async getUserById(userId: string): Promise<User | null> {
@@ -673,26 +743,24 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    // Check if email is being updated and if it's already taken
+    // Check if email is being updated
     if (updateData.email && updateData.email !== currentUser.email) {
+      // Check if new email is already taken
       const existingUser = await this.databaseService.transaction(async (connection) => {
         const [rows] = await connection.query(
           'SELECT * FROM users WHERE email = ? AND id != ?',
           [updateData.email, userId]
         );
-        
-        const users = rows as any[];
-        return users.length > 0 ? users[0] : null;
+        return (rows as any[]).length > 0;
       });
 
       if (existingUser) {
-        throw new BadRequestException('Email already in use');
+        throw new BadRequestException('Email is already taken');
       }
     }
 
-    // Update user data
+    // Update user
     const updatedUser = await this.databaseService.transaction(async (connection) => {
-      // Build the update query dynamically based on what fields are provided
       const updates: string[] = [];
       const values: any[] = [];
 
@@ -707,13 +775,11 @@ export class AuthService {
       }
 
       if (updates.length === 0) {
-        throw new BadRequestException('No fields to update');
+        return currentUser;
       }
 
-      // Add user ID to values
       values.push(userId);
 
-      // Execute update query
       await connection.execute(
         `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
         values
@@ -724,26 +790,23 @@ export class AuthService {
         'SELECT * FROM users WHERE id = ?',
         [userId]
       );
-
+      
       const users = rows as any[];
-      if (!users || users.length === 0) {
-        throw new Error('Failed to retrieve updated user');
-      }
-
-      return users[0];
+      return users.length > 0 ? User.fromDatabaseRow(users[0]) : null;
     });
 
+    if (!updatedUser) {
+      throw new NotFoundException('User not found after update');
+    }
+
     // Update cache
-    const user = User.fromDatabaseRow(updatedUser);
-    await this.cacheManager.set(`user:id:${userId}`, updatedUser, 300000);
-    if (updateData.email) {
-      // Delete old email cache entry if email was changed
+    await this.cacheManager.del(`user:id:${userId}`);
+    if (updateData.email && updateData.email !== currentUser.email) {
       await this.cacheManager.del(`user:email:${currentUser.email}`);
-      // Set new email cache entry
       await this.cacheManager.set(`user:email:${updateData.email}`, updatedUser, 300000);
     }
 
-    return user;
+    return updatedUser;
   }
 
   /**
@@ -829,4 +892,4 @@ export class AuthService {
     await this.cacheManager.del(`user:id:${userId}`);
     await this.cacheManager.del(`user:email:${user.email}`);
   }
-} 
+}

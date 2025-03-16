@@ -1,0 +1,22 @@
+FROM node:20-alpine
+
+# Set up working directory
+WORKDIR /app
+
+# Install global Vite
+RUN npm install -g vite@6.2.2
+
+# Create a basic package.json
+RUN echo '{"name":"vite-test","type":"module","dependencies":{"vite":"6.2.2"}}' > package.json
+
+# Install dependencies
+RUN npm install
+
+# Create a basic index.html
+RUN echo '<!DOCTYPE html><html><head><title>Vite Test</title></head><body><h1>Vite Test</h1></body></html>' > index.html
+
+# Expose port
+EXPOSE 3000
+
+# Start Vite
+CMD ["vite", "--host", "0.0.0.0", "--port", "3000"] 

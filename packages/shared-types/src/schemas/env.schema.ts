@@ -23,7 +23,7 @@ export const backendEnvSchema = z.object({
 
 // Environment schema for frontend
 export const frontendEnvSchema = z.object({
-  VITE_API_URL: z.string().url().default('http://localhost:3000/api'),
+  VITE_API_URL: z.string().url().default('http://localhost:3001'),
   VITE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   VITE_ENABLE_MOCKS: z.coerce.boolean().default(true),
 });

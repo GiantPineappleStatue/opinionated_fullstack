@@ -1,0 +1,1200 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "app"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "AppController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "app"
+        ]
+      }
+    },
+    "/api/nats/test": {
+      "post": {
+        "description": "Send a test message over NATS to the Python service",
+        "operationId": "NatsController_testNatsConnection",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Test message sent successfully"
+          },
+          "500": {
+            "description": "Failed to send test message"
+          }
+        },
+        "summary": "Test NATS connection",
+        "tags": [
+          "nats"
+        ]
+      }
+    },
+    "/api/tasks": {
+      "post": {
+        "operationId": "TasksController_createTask",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/api/tasks/email": {
+      "post": {
+        "operationId": "TasksController_createEmailTask",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/api/tasks/notification": {
+      "post": {
+        "operationId": "TasksController_createNotificationTask",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/api/tasks/data-processing": {
+      "post": {
+        "operationId": "TasksController_createDataProcessingTask",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tasks"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "description": "Authenticate a user with email and password",
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "email": "user@example.com",
+                  "password": "password123"
+                },
+                "$ref": "#/components/schemas/Object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": {
+                      "user": {
+                        "id": "1",
+                        "email": "user@example.com",
+                        "name": "John Doe",
+                        "role": "user"
+                      }
+                    },
+                    "status": 200,
+                    "message": "Login successful"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        },
+        "summary": "User login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "description": "Register a new user account",
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "email": "newuser@example.com",
+                  "password": "password123",
+                  "name": "New User"
+                },
+                "$ref": "#/components/schemas/Object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": {
+                      "user": {
+                        "id": "2",
+                        "email": "newuser@example.com",
+                        "name": "New User",
+                        "role": "user"
+                      }
+                    },
+                    "status": 201,
+                    "message": "Registration successful"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or email already exists"
+          }
+        },
+        "summary": "User registration",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "description": "Log out the current user and clear session",
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": null,
+                    "status": 200,
+                    "message": "Logout successful"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "User logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/profile": {
+      "get": {
+        "description": "Get the current user's profile information",
+        "operationId": "AuthController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": {
+                      "id": "1",
+                      "email": "user@example.com",
+                      "name": "John Doe",
+                      "role": "user",
+                      "createdAt": "2023-01-01T00:00:00.000Z",
+                      "updatedAt": "2023-01-01T00:00:00.000Z",
+                      "emailVerified": true
+                    },
+                    "status": 200,
+                    "message": "Profile retrieved successfully"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": null,
+                    "status": 401,
+                    "message": "Authentication required",
+                    "error": {
+                      "code": "UNAUTHORIZED",
+                      "message": "Authentication required"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get user profile",
+        "tags": [
+          "auth"
+        ]
+      },
+      "patch": {
+        "description": "Update the current user's profile information",
+        "operationId": "AuthController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "name": "Updated Name",
+                  "email": "updated.email@example.com"
+                },
+                "$ref": "#/components/schemas/Object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": {
+                      "id": "1",
+                      "email": "updated.email@example.com",
+                      "name": "Updated Name",
+                      "createdAt": "2023-01-01T00:00:00.000Z",
+                      "updatedAt": "2023-01-02T00:00:00.000Z"
+                    },
+                    "status": 200,
+                    "message": "Profile updated successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or email already in use"
+          },
+          "401": {
+            "description": "Not authenticated"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Update user profile",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/change-password": {
+      "post": {
+        "description": "Change the current user's password",
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "currentPassword": "oldPassword123",
+                  "newPassword": "newPassword123",
+                  "confirmPassword": "newPassword123"
+                },
+                "$ref": "#/components/schemas/Object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": null,
+                    "status": 200,
+                    "message": "Password changed successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Current password is incorrect or passwords don't match"
+          },
+          "401": {
+            "description": "Not authenticated"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Change password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/account": {
+      "delete": {
+        "description": "Permanently delete the current user's account",
+        "operationId": "AuthController_deleteAccount",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "example": {
+                  "password": "password123",
+                  "confirmation": "DELETE"
+                },
+                "$ref": "#/components/schemas/Object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": null,
+                    "status": 200,
+                    "message": "Account deleted successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Password is incorrect or confirmation is invalid"
+          },
+          "401": {
+            "description": "Not authenticated"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Delete account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "description": "Get a new access token using the refresh token cookie",
+        "operationId": "AuthController_refreshToken",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Token refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": null,
+                    "status": 200,
+                    "message": "Token refreshed successfully"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Refresh access token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/admin-profile": {
+      "get": {
+        "description": "Retrieve the admin profile information (admin only)",
+        "operationId": "AuthController_getAdminProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Admin profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": {
+                      "id": "1",
+                      "email": "admin@example.com",
+                      "name": "Admin User",
+                      "role": "admin",
+                      "createdAt": "2023-01-01T00:00:00.000Z"
+                    },
+                    "status": 200,
+                    "message": "Admin profile retrieved successfully"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Not authorized"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get admin profile",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/verify-email": {
+      "get": {
+        "description": "Verify user email with token",
+        "operationId": "AuthController_verifyEmail",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "description": "Email verification token",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Email verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": {
+                      "verified": true
+                    },
+                    "status": 200,
+                    "message": "Email verified successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired token"
+          }
+        },
+        "summary": "Verify email",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/resend-verification": {
+      "post": {
+        "description": "Resend the email verification link",
+        "operationId": "AuthController_resendVerification",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Verification email sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": null,
+                    "status": 200,
+                    "message": "Verification email sent"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Email already verified"
+          },
+          "401": {
+            "description": "Not authenticated"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Resend verification email",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/email-status": {
+      "get": {
+        "description": "Check if the user's email is verified",
+        "operationId": "AuthController_getEmailStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Email verification status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": {
+                      "verified": true
+                    },
+                    "status": 200,
+                    "message": "Email verification status"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get email verification status",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/test": {
+      "post": {
+        "operationId": "AuthController_test",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      },
+      "get": {
+        "operationId": "AuthController_testGet",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/admin/team": {
+      "get": {
+        "description": "Get a list of team members (admin only)",
+        "operationId": "AdminController_getTeamMembers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Team members retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": [
+                      {
+                        "id": "1",
+                        "name": "John Doe",
+                        "email": "john@example.com",
+                        "role": "admin"
+                      },
+                      {
+                        "id": "2",
+                        "name": "Jane Smith",
+                        "email": "jane@example.com",
+                        "role": "user"
+                      }
+                    ],
+                    "status": 200,
+                    "message": "Team members retrieved successfully"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Not authorized"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get team members",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/profile": {
+      "get": {
+        "description": "Get the current user's extended profile information",
+        "operationId": "ProfileController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": {
+                      "id": "1",
+                      "userId": "1",
+                      "bio": "Software developer passionate about web technologies",
+                      "avatarUrl": "https://example.com/avatar.jpg",
+                      "socialLinks": {
+                        "twitter": "https://twitter.com/username",
+                        "github": "https://github.com/username",
+                        "linkedin": "https://linkedin.com/in/username",
+                        "website": "https://example.com"
+                      },
+                      "createdAt": "2023-01-01T00:00:00.000Z",
+                      "updatedAt": "2023-01-01T00:00:00.000Z"
+                    },
+                    "status": 200,
+                    "message": "Profile retrieved successfully"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": null,
+                    "status": 401,
+                    "message": "Authentication required",
+                    "error": {
+                      "code": "UNAUTHORIZED",
+                      "message": "Authentication required"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get user profile",
+        "tags": [
+          "profile"
+        ]
+      },
+      "patch": {
+        "description": "Update the current user's extended profile information",
+        "operationId": "ProfileController_updateProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "data": {
+                      "id": "1",
+                      "userId": "1",
+                      "bio": "Updated bio",
+                      "avatarUrl": "https://example.com/new-avatar.jpg",
+                      "socialLinks": {
+                        "twitter": "https://twitter.com/newusername",
+                        "github": "https://github.com/newusername"
+                      },
+                      "createdAt": "2023-01-01T00:00:00.000Z",
+                      "updatedAt": "2023-01-02T00:00:00.000Z"
+                    },
+                    "status": 200,
+                    "message": "Profile updated successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Not authenticated"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Update user profile",
+        "tags": [
+          "profile"
+        ]
+      }
+    },
+    "/api/profile/avatar": {
+      "post": {
+        "description": "Upload a new avatar image for the current user",
+        "operationId": "ProfileController_uploadAvatar",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Upload avatar",
+        "tags": [
+          "profile"
+        ]
+      }
+    },
+    "/api/cache/metrics": {
+      "get": {
+        "description": "Get cache hit/miss metrics (admin only)",
+        "operationId": "CacheController_getMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Cache metrics retrieved successfully"
+          }
+        },
+        "summary": "Get cache metrics",
+        "tags": [
+          "cache"
+        ]
+      },
+      "delete": {
+        "description": "Reset cache hit/miss metrics (admin only)",
+        "operationId": "CacheController_resetMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Cache metrics reset successfully"
+          }
+        },
+        "summary": "Reset cache metrics",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/cache/{key}": {
+      "get": {
+        "description": "Get a value from cache by key (admin only)",
+        "operationId": "CacheController_getCacheValue",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "description": "Cache key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cache value retrieved successfully"
+          }
+        },
+        "summary": "Get cache value",
+        "tags": [
+          "cache"
+        ]
+      },
+      "delete": {
+        "description": "Delete a value from cache by key (admin only)",
+        "operationId": "CacheController_deleteCacheValue",
+        "parameters": [
+          {
+            "name": "key",
+            "required": true,
+            "in": "path",
+            "description": "Cache key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cache value deleted successfully"
+          }
+        },
+        "summary": "Delete cache value",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/cache": {
+      "post": {
+        "description": "Set a value in cache (admin only)",
+        "operationId": "CacheController_setCacheValue",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Cache value set successfully"
+          }
+        },
+        "summary": "Set cache value",
+        "tags": [
+          "cache"
+        ]
+      },
+      "delete": {
+        "description": "Clear all cache entries (admin only)",
+        "operationId": "CacheController_clearCache",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Cache cleared successfully"
+          }
+        },
+        "summary": "Clear cache",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/cache/hit-rate/{prefix}": {
+      "get": {
+        "description": "Get cache hit rate for a specific prefix (admin only)",
+        "operationId": "CacheController_getHitRate",
+        "parameters": [
+          {
+            "name": "prefix",
+            "required": true,
+            "in": "path",
+            "description": "Cache key prefix",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cache hit rate retrieved successfully"
+          }
+        },
+        "summary": "Get cache hit rate",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/cache/prefix/{prefix}": {
+      "delete": {
+        "description": "Invalidate all cache entries with a specific prefix (admin only)",
+        "operationId": "CacheController_invalidateByPrefix",
+        "parameters": [
+          {
+            "name": "prefix",
+            "required": true,
+            "in": "path",
+            "description": "Cache key prefix",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cache invalidated successfully"
+          }
+        },
+        "summary": "Invalidate cache by prefix",
+        "tags": [
+          "cache"
+        ]
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "operationId": "AdminController_getAllUsers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of all users"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Not authorized (Admin role required)"
+          }
+        },
+        "summary": "Get all users (Admin only)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{userId}/promote": {
+      "post": {
+        "operationId": "AdminController_promoteUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User promoted to admin"
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Not authorized (Admin role required)"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "summary": "Promote user to admin (Admin only)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/openai/completions": {
+      "post": {
+        "operationId": "OpenAIController_generateCompletion",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "The completion request parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompletionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The completion response"
+          }
+        },
+        "summary": "Generate a completion using OpenAI",
+        "tags": [
+          "openai"
+        ]
+      }
+    },
+    "/api/openai/completions/stream": {
+      "get": {
+        "operationId": "OpenAIController_streamCompletion",
+        "parameters": [
+          {
+            "name": "prompt",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "systemMessage",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "temperature",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "maxTokens",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the streaming endpoint"
+          }
+        },
+        "summary": "Get the URL for streaming completions",
+        "tags": [
+          "openai"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Fullstack Boilerplate API",
+    "description": "The API documentation for the Fullstack Boilerplate project",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Authentication endpoints"
+    },
+    {
+      "name": "tasks",
+      "description": "Task management endpoints"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "JWT-auth": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "name": "JWT",
+        "description": "Enter JWT token",
+        "in": "header"
+      },
+      "cookie": {
+        "type": "apiKey",
+        "in": "Cookie",
+        "name": "connect.sid"
+      }
+    },
+    "schemas": {
+      "Object": {
+        "type": "object",
+        "properties": {}
+      },
+      "CompletionRequestDto": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

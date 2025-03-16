@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
-import { useAuth } from '@/providers/auth-provider';
+import { useAuth } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';

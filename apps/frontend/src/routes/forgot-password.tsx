@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import * as authService from '@/lib/auth/auth-service';
+import { useAuth } from '@/auth';
 
 // Define the form schema
 const forgotPasswordSchema = z.object({
@@ -25,6 +25,7 @@ function ForgotPasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const toast = useToast();
+  const auth = useAuth();
 
   // Initialize the form
   const form = useForm<ForgotPasswordFormValues>({
@@ -38,7 +39,7 @@ function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     try {
       setIsSubmitting(true);
-      await authService.requestPasswordReset(data);
+      await auth.resetPassword(data);
       setIsSubmitted(true);
       toast.success({
         message: 'Password reset email sent',

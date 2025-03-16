@@ -1,46 +1,78 @@
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
-import { RouterProvider } from '@tanstack/react-router';
-import { router } from './lib/router';
-import { Providers } from '@/components/providers';
+import { createRouter, RouterProvider } from '@tanstack/react-router';
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+import { useAuth, AuthProvider } from './auth';
+import { routeTree } from './routeTree.gen';
 import './styles/globals.css';
+import { User } from '@repo/shared-types';
 
-// Register the router instance for type safety
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 60 * 24, // 24 hours
+      retry: 0,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+const router = createRouter({
+  routeTree,
+  context:   {
+    queryClient,
+    auth: null!
+  },
+  defaultPreload: 'intent',
+  defaultPreloadStaleTime: 0,
+  scrollRestoration: true,
+})
+
+// Register your router for maximum type safety
 declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router;
   }
 }
 
-// Initialize router context with dummy functions
-// These will be replaced by the actual functions from AuthProvider
-router.update({
-  context: {
-    auth: {
-      isAuthenticated: false,
-      isLoading: true,
-      user: null,
-      login: async () => {
-        throw new Error('Auth context not initialized');
-      },
-      register: async () => {
-        throw new Error('Auth context not initialized');
-      },
-      logout: async () => {
-        throw new Error('Auth context not initialized');
-      },
-    },
-  },
-});
+// Create an auth context for the router
+interface AuthContext {
+  isAuthenticated: boolean
+  login: (credentials: { email: string; password: string }) => Promise<void>
+  logout: () => Promise<void>
+  user: User | null
+  isLoading: boolean
+}
 
-const rootElement = document.getElementById('root')!;
-if (!rootElement.innerHTML) {
-  const root = ReactDOM.createRoot(rootElement);
-  root.render(
-    <StrictMode>
-      <Providers>
-        <RouterProvider router={router} />
-      </Providers>
-    </StrictMode>,
+// Create a router context type
+interface RouterContext {
+  queryClient: QueryClient;
+  auth: AuthContext;
+}
+
+function App() {
+  const auth = useAuth();
+
+  return (
+
+      <RouterProvider 
+        router={router}
+        context={{
+          queryClient,
+          auth: auth,
+        }}
+      />
+
   );
 }
+
+// Render the app
+ReactDOM.createRoot(document.getElementById('root')!).render(
+    <StrictMode>    <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <App />
+    </AuthProvider>    </QueryClientProvider>
+  </StrictMode>,
+);

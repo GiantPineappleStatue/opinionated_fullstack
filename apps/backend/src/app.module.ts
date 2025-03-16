@@ -20,6 +20,7 @@ import { AdminModule } from './admin/admin.module';
 import { OpenAIModule } from './openai/openai.module';
 import { EmailModule } from './email/email.module';
 import { CacheModule } from './cache/cache.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [
@@ -43,6 +44,9 @@ import { CacheModule } from './cache/cache.module';
     
     // Auth
     AuthModule,
+    
+    // Profile
+    ProfileModule,
     
     // Email
     EmailModule,

@@ -1,0 +1,29 @@
+http.host: "0.0.0.0"
+xpack.monitoring.elasticsearch.hosts: [ "http://elasticsearch:9200" ]
+
+input {
+  beats {
+    port => 5044
+  }
+  tcp {
+    port => 5000
+  }
+  udp {
+    port => 5000
+  }
+}
+
+filter {
+  if [type] == "json" {
+    json {
+      source => "message"
+    }
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["elasticsearch:9200"]
+    index => "%{[@metadata][beat]}-%{[@metadata][version]}-%{+YYYY.MM.dd}"
+  }
+} 
